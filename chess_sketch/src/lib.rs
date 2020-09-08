@@ -1,12 +1,21 @@
+#![allow(dead_code)]
+
+// TODO: use "trait objects" // https://doc.rust-lang.org/book/ch17-02-trait-objects.html#using-trait-objects-that-allow-for-values-of-different-types
+//  (eg. instead of PieceKind enum + Piece struct, use Piece trait)
+// TODO: look over usage of refs (eg. RefCell) - should some use Rc instead, or other variant?
+
+use std::cell::RefCell;
+
 
 // game
 
-struct Game<'a> {
-    players: Vec<Player>,
-    pieces: Vec<Piece<'a>>,
-    state: State<'a>,
-    turns: Vec<Turn<'a>>,
-    actions: Vec<Action<'a>>,
+struct Game {
+    players: Vec<RefCell<Player>>,
+    pieces: Vec<RefCell<Piece>>,
+    state: State,
+    turns: Vec<Turn>,
+    actions: Vec<RefCell<Action>>,
+    board: Board2d,
 }
 
 enum Color {
@@ -18,17 +27,11 @@ struct Player {
     color: Color,
 }
 
-struct StateEnded<'a> {
-    winner: &'a Player,
-}
-
-struct StateActive<'a> {
-    next_move: &'a Player,
-}
-
-enum State<'a> {
-    Active(StateActive<'a>),
-    Ended(StateEnded<'a>),
+enum State {
+    Active,
+    Ended {
+        winner: RefCell<Player>,
+    },
 }
 
 
@@ -43,36 +46,36 @@ enum PieceKind {
     Pawn,
 }
 
-struct Piece<'a> {
+struct Piece {
     kind: PieceKind,
-    player: &'a Player,
+    player: RefCell<Player>,
 }
 
 
 // board
 
-struct Board2d<'a> {
-    tiles: Vec<Tile<'a>>,
-    pieces: Vec<TilePiece<'a>>,
-    edges: Vec<TileEdge<'a>>,
+struct Board2d {
+    tiles: Vec<RefCell<Tile>>,
+    pieces: Vec<RefCell<TilePiece>>,
+    edges: Vec<TileEdge>,
 }
 
-struct Tile<'a> {
-    pieces: Vec<&'a TilePiece<'a>>,
+struct Tile {
+    pieces: Vec<RefCell<TilePiece>>,
     color: TileColor,
 }
 
 type TileColor = Color;
 
-struct TileEdge<'a> {
-    origin: Tile<'a>,
-    target: Tile<'a>,
+struct TileEdge {
+    origin: RefCell<Tile>,
+    target: RefCell<Tile>,
     kind: TileEdgeKind,
 }
 
-struct TilePiece<'a> {
-    piece: &'a Piece<'a>,
-    tile: &'a Tile<'a>,
+struct TilePiece {
+    piece: RefCell<Piece>,
+    tile: RefCell<Tile>,
 }
 
 
@@ -101,24 +104,87 @@ type TileEdgeKindPath = Vec<TileEdgeKind>;
 
 // action
 
-enum ActionKind<'a> {
-    PieceMove(&'a Piece<'a>, TileEdgeKindPath),
-    Castling(&'a Piece<'a>), // with rook
-    Promotion(&'a Piece<'a>, PieceKind),
+enum ActionKind {
+    PieceMove {
+        piece: RefCell<Piece>,
+        path: TileEdgeKindPath,
+    },
+    Castling {
+        rook: RefCell<Piece>,
+    },
+    Promotion(RefCell<Piece>, PieceKind),
 }
 
-struct Action<'a> {
-    player: &'a Player,
-    kind: ActionKind<'a>,
+struct Action {
+    player: RefCell<Player>,
+    kind: ActionKind,
 }
 
 // type Timestamp = u32; // TODO
 
-struct Turn<'a> {
-    player: &'a Player,
-    actions: Vec<&'a Action<'a>>,
+struct Turn {
+    player: RefCell<Player>,
+    actions: Vec<RefCell<Action>>,
     // start_at: Timestamp,
     // end_at: Timestamp,
+}
+
+
+// impl
+
+impl Game {
+    fn new() -> Game {
+        let players = vec![Player {
+            color: Color::White,
+        }, Player {
+            color: Color::Black,
+        }].into_iter().map(RefCell::new).collect();
+
+        let state = State::Active;
+
+        let mut game = Game {
+            players,
+            pieces: vec![],
+            state,
+            turns: vec![],
+            actions: vec![],
+            board: Board2d::new(),
+        };
+
+        game.setup_chess_normal();
+
+        game
+    }
+    fn setup_chess_normal(&mut self) {
+        assert_eq!(self.players.len(), 2);
+        assert_eq!(self.pieces.len(), 0);
+
+        self.board.setup_grid(8, 8);
+
+        // create pieces + assign to player + tiles
+        unimplemented!();
+    }
+    fn current_player(&self) -> &Player {
+        // look at self.turns.last.player or player.0 if empty
+        unimplemented!()
+    }
+}
+
+impl Board2d {
+    fn new() -> Board2d {
+        Board2d {
+            tiles: vec![],
+            pieces: vec![],
+            edges: vec![],
+        }
+    }
+    fn setup_grid(&mut self, rows: usize, cols: usize) {
+        assert_eq!(self.tiles.len(), 0);
+        if rows==0 || cols==0 {return;}
+
+        // create tiles + edges + color
+        unimplemented!();
+    }
 }
 
 
@@ -126,8 +192,12 @@ struct Turn<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn it_works() {
         assert_eq!(2 + 2, 4);
+        let game = Game::new();
+        assert_eq!(game.players.len(), 2);
     }
 }
