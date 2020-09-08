@@ -93,11 +93,24 @@ wiki:
 					aka "en passant"
 				(convert to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn)
 					aka "promotion"
+			-> no move allowed if putting own king in "check"
 	objective: "checkmate" opponents king (inescapable threat of "capture")
 		to that end: make pieces support each other + "capture" opponent pieces
 
-
-		check + end of game: ...
+		- check: opponent.next_turn.possible_moves -> king.capture
+			player.current.possible_moves
+				-> only such that check is prevented (+ not castling (as kings tile is already threatened))
+				- if not possible, then check-mate
+		- resignation // either player may resign
+		- win on time // potential existed for player with time left to checkmate when opponent run out of time
+		- forfeit
+		- draw:
+			- draw by agreement // player offer opponent, opponent agrees on his turn
+			- stalemate // player has no legal moves and is not in check
+			- threefold repetition // repeating board pattern, either player may claim a draw
+			- fifty-move rule // no pawn moved + no capture made during last 50 moves, either player may claim a draw
+			- dead position // neither player can checkmate with legal moves (eg. (king, knight), (king))
+			- draw on time // out of time for both players
 
 
 	exchanging pieces
