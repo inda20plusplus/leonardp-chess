@@ -1,0 +1,154 @@
+# chess
+' created by Leonard Pauli, 7 sep 2020
+
+Chess is TileGame
+
+TileGame
+	State
+	Board is Board2DGrid
+		start_provider
+		col alpha-indexed from white bottom-left
+			file
+		row 1-indexes from white closest-to-home
+			rank with Player
+
+	Tile
+		color
+		position
+			coding
+		edges
+	Edge
+		(origin, target) is Tile
+		type is Type
+		Type
+	Path
+		is many Edge
+
+	Piece
+		Movement
+			(vädersträck? n w e s? nw, etc?)
+		coding
+			ascii
+			unicode
+			title
+
+
+	Action
+		Movement
+		Coding
+			Format
+				// PGN
+			encode
+			parse
+
+	validate_action
+	perform_action
+	valid_actions_list with State + Player
+
+	Turn
+
+	score calculation?
+
+	Player
+		Home is (Tile, Tile) // sets direction
+		Color
+		pieces
+			captured
+			lost
+			converted
+		opponent is Player
+
+
+wiki:
+	2 player
+	strategy board game
+	checkerboard board 8x8 squares grid
+	history
+		millions players worldwide
+		potentially derived from chaturanga (~<7th century, indian)
+			xiangqi (east asian / "chinese chess") / janggi (korean) / shogi (japanese)
+		europe ~9th century
+		modern rules standardized ~19th century
+	no hidden information
+	start:
+		16 pieces:
+			king
+				(n, w, e, s, nw, ne, sw, se)*1
+				castling (a, h)-side
+			queen
+				(n, w, e, s, nw, ne, sw, se)*inf
+			2*rook
+				(n, w, e, s)*inf
+			2*knight
+				and(n, n, w) * (any rotation)
+					any closest tile not on same rank, file or diagonal, ie. L-shape on normal board
+					may "jump over" pieces
+			2*bishop
+				(nw, ne, sw, se)*inf
+			8*pawn
+				n*1
+				n*2 if piece.prev_movements.count=0
+				(nw, ne)*1 if can capture
+				(nw, ne)*1 if opponent.pawn did n*2 prev_turn and opponent.pawn.file = piece.file
+					aka "en passant"
+				(convert to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn)
+					aka "promotion"
+	objective: "checkmate" opponents king (inescapable threat of "capture")
+		to that end: make pieces support each other + "capture" opponent pieces
+
+
+		check + end of game: ...
+
+
+	exchanging pieces
+		trade advantagous positions
+	resign
+	time-limit
+		counted while players turn is active
+	draw
+
+	endgame
+	variants
+		fischer random chess aka chess960
+			start_provider
+				black mirrors white
+				white.first_rank:
+					bishops on opposite-colored tiles
+					king in-between the rooks
+					possibilities:
+						4 * (dark, light)-tiled bishop,
+						+ 6 remaining for queen
+						+ 10 (2 knights on 5 squares)
+						+ 3 tiles left: 1 way for 2 rooks + king as king has to be in-between
+						-> 4*4*6*10*1
+			castling:
+				with (king, rook)
+				prereq:
+					- (king, rook).prev-movements.count = 0
+					- king_path.{under attack}.count = 0;
+						king_path: tile.path(king.tile, king.target.tile)
+						rook_path: tile.path(rook.tile, rook.target.tile)
+					- (king_path, rook_path).pieces.{not king or rook}.count = 0
+				kinds:
+					- a-side:
+						notation: "0-0-0"
+						king -> c
+						a-side rook -> d
+					- h-side:
+						notation: "0-0"
+						king -> g
+						h-side rook -> f
+				coding:
+					portable game notation PGN
+					starting position in FEN tag
+					rule variant: [Variant "Fisherandom"] or [Variant "Chess960"]
+
+
+		rules
+		pieces
+		chessboards
+			hexagonal: https://en.wikipedia.org/wiki/File:Glinski_Chess_Setup.png
+			circular: https://en.wikipedia.org/wiki/File:Rundskak_foto.jpg
+			three-player: https://en.wikipedia.org/wiki/Three-player_chess
+
+
