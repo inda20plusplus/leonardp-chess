@@ -6,6 +6,7 @@
 // TODO: use test (full GM replay using PGN)
 // TODO: replace all unwrap with correct error handling (send to end user)
 // TODO: use traits for PieceKind instead of enum (+ register)
+// TODO: clean up Some, None, Ok, Err (use directly without ::)
 
 pub struct Game {
     pub board: Board,
@@ -69,7 +70,7 @@ struct Tile {
     piece: Option<Piece>,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Position {
     // (0, 0) is bottom left for white
     // TODO: consider using i32 instead?
@@ -129,6 +130,13 @@ pub struct ActionPackage {
     pub player: PlayerIndex,
 }
 
+#[derive(Debug)]
+enum ActionValidation {
+    Standard,
+    EnPassant { capture_tile: Position },
+    Promotion,
+}
+
 struct PGNCommand {
     piece: Option<PieceKind>,
     position: Position,
@@ -186,7 +194,7 @@ impl Position {
     }
     pub fn to_string(&self) -> String {
         let file = File::new(self.x).print(PrintStyle::Ascii);
-        format!("{}{}", file, self.y)
+        format!("{}{}", file, self.y+1)
     }
 }
 
@@ -242,7 +250,7 @@ impl Game {
         &self.players[self.current_player_index()]
     }
 
-    fn validate_action(&self, action: &ActionPackage) -> Result<(), &str> {
+    fn validate_action(&self, action: &ActionPackage) -> Result<ActionValidation, &str> {
         // TODO: ®eturn err message?
         let player = action.player;
         if player!=self.current_player_index() {
@@ -275,6 +283,71 @@ impl Game {
                 //  eg. limit direction + initial move + diagonal + end rank for pawn
                 //  eg. castling for king
 
+                // TODO: move PieceKind specific code to PieceKind
+                let action_validation = match piece.kind {
+                    PieceKind::Pawn => {
+                        let player = &self.players[player];
+                        let dy_forward = player.dy_forward();
+                        let dy_forward_dir = dy_forward < 0;
+                        let move_dy_dir = dy < 0;
+
+                        if move_dy_dir != dy_forward_dir {
+                            return Result::Err("pawn cannot move backwards");
+                        }
+
+                        if dx==0 && target_tile.piece.is_some() {
+                            return Result::Err("pawn cannot capture forward");
+                        }
+
+                        if i32::abs(dy)==2 && !player.is_pawn_home(origin_tile.position) {
+                            return Result::Err("pawn can only two-step-move starting from home");
+                        }
+
+                        if i32::abs(dy)>2 {
+                            return Result::Err("pawn cannot move that far");
+                        }
+
+                        let attempted_en_passant = i32::abs(dx)==1 && target_tile.piece.is_none();
+                        if !attempted_en_passant {
+                            ActionValidation::Standard
+                        } else {
+                            let prev_turn = self.turns.get(self.turns.len()-2);
+
+                            let prev_turn = match prev_turn {
+                                Option::Some(prev_turn) => prev_turn,
+                                _ => {
+                                    return Result::Err("en_passant only available after another move");
+                                }
+                            };
+
+                            let just_moved_past = prev_turn.actions.iter().scan(0, |_, action| {
+                                match action.action {
+                                    Action::PieceMove {origin: _, target} => Some(target),
+                                }
+                            }).filter(|action_target_pos| {
+                                let pos = action_target_pos;
+                                let same_file = pos.x == target_tile.position.x;
+                                let rank_before = (pos.y as i32) == (target_tile.position.y as i32) - dy_forward;
+                                same_file && rank_before
+                            }).next();
+
+                            let capture_tile_pos = match just_moved_past {
+                                Some(inner) => inner,
+                                None => {
+                                    return Result::Err("en_passant only available just after an enabling move");
+                                }
+                            };
+                            
+                            ActionValidation::EnPassant { capture_tile: capture_tile_pos }
+                        }
+                    },
+                    PieceKind::King => {
+                        // TODO
+                        ActionValidation::Standard
+                    },
+                    _ => ActionValidation::Standard,
+                };
+
                 if !piece.kind.jumps() {
                     let steps = piece.kind.delta_steps(dx, dy);
                     let mut pos = origin_tile.position;
@@ -283,6 +356,9 @@ impl Game {
                         pos.x = ((pos.x as i32) + step.0) as usize;
                         pos.y = ((pos.y as i32) + step.1) as usize;
                         // check
+                        let is_destination_tile = pos==target_tile.position;
+                        if is_destination_tile {break}
+
                         let intermediate_tile = self.board.tile_at(pos).ok_or("invalid intermediate tile")?;
                         if intermediate_tile.piece.is_some() {
                             return Result::Err("a piece was in the way");
@@ -290,7 +366,7 @@ impl Game {
                     }
                 }
 
-                Ok(())
+                Ok(action_validation)
             },
         }
     }
@@ -298,12 +374,15 @@ impl Game {
     // TODO: make validate_action return wrapper (ValidatedActionPackage)
     //  that may be performed directly?
     pub fn perform_action(&mut self, action: ActionPackage) -> Result<(), String> {
-        if let Result::Err(e) = self.validate_action(&action) {
-            return Result::Err(e.to_owned())
-        }
+        let action_validaton = match self.validate_action(&action) {
+            Ok(inner) => inner,
+            Err(e) => return Result::Err(e.to_owned()),
+        };
 
         match action.action {
             Action::PieceMove {origin, target} => {
+                let player = &mut self.players[self.current_player_index()];
+
                 let piece = {
                     let origin_tile = self.board.tile_at_mut(origin).unwrap();
                     origin_tile.piece.take().unwrap()
@@ -312,11 +391,21 @@ impl Game {
                     let target_tile = self.board.tile_at_mut(target).unwrap();
                     target_tile.piece.replace(piece)
                 };
-
                 if let Option::Some(captured) = captured {
-                    let p = &mut self.players[self.current_player_index()];
-                    p.captured.push(captured);
+                    player.captured.push(captured);
                 }
+
+                match action_validaton {
+                    ActionValidation::Standard => (),
+                    ActionValidation::EnPassant { capture_tile } => {
+                        let capture_tile = self.board.tile_at_mut(capture_tile).unwrap();
+                        let captured = capture_tile.piece.take().unwrap();
+                        player.captured.push(captured);
+                    },
+                    ActionValidation::Promotion => {
+                        unimplemented!();
+                    }
+                };
 
                 let current_turn = self.turns.last_mut().unwrap();
                 current_turn.actions.push(action);
@@ -369,6 +458,21 @@ impl Player {
     }
     fn captured_value(&self) -> u32 {
         self.captured.iter().map(|p| p.kind.value()).fold(0, |x, b| x+b)
+    }
+    fn dy_forward(&self) -> i32 {
+        match self.color {
+            Color::White => 1,
+            Color::Black => -1,
+        }
+    }
+    fn is_pawn_home(&self, pawn_position: Position) -> bool {
+        let rows = 8;
+        let last = rows-1;
+        let home_y = match self.color {
+            Color::White => 0 + self.dy_forward(),
+            Color::Black => last + self.dy_forward(),
+        };
+        (pawn_position.y as i32)==home_y
     }
 }
 
@@ -696,7 +800,7 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
+    #[test]
     fn pawn_moves() -> Result<(), String> {
         
         // Pawn: n*1
@@ -723,6 +827,7 @@ mod tests {
         game.perform_action(game.move_from_str("a4 a5")?)?;
         game.perform_action(game.move_from_str("b6 a5")?)?; // diagonal capture
 
+        game.perform_action(game.move_from_str("d2 d3")?)?; // white dummy move
         game.perform_action(game.move_from_str("a5 a4")?)?;
         game.perform_action(game.move_from_str("b2 b4")?)?;
         game.perform_action(game.move_from_str("a4 b3")?)?; // en_passant
