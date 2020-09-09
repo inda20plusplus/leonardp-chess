@@ -168,6 +168,21 @@ impl Game {
         // look at self.turns.last.player or player.0 if empty
         unimplemented!()
     }
+    fn perform_action(&self, _action: Action) -> Result<(), ()> {
+        // if !self.validate_action(action) {return Result::Err(());}
+        // TODO: add action error enum?
+        // perform action + append to turn + possibly change game state
+        unimplemented!()
+    }
+    fn validate_action(&self, _action: Action) -> bool {
+        // validate action.player = current_player
+        // validate move etc
+        // TODO: add action validation error enum?
+        unimplemented!()
+    }
+    // fn valid_actions(&self, player: RefCell<Player>) -> T impl Iterator<ActionKind> {
+    //     unimplemented!()
+    // }
 }
 
 impl Board2d {
@@ -185,6 +200,20 @@ impl Board2d {
         // create tiles + edges + color
         unimplemented!();
     }
+    fn print(&self) -> String {
+        // TODO: enum PrintStyle(monospace(color: bw/terminal), csv)
+        unimplemented!()
+    }
+    fn tile_at(&self) -> Option<RefCell<Tile>> {
+        // TODO: struct TilePosition
+        unimplemented!()
+    }
+}
+
+impl Tile {
+    fn any_active_piece_for_player(&self, _player: Player) -> Option<Piece> {
+        unimplemented!()
+    }
 }
 
 
@@ -199,5 +228,26 @@ mod tests {
         assert_eq!(2 + 2, 4);
         let game = Game::new();
         assert_eq!(game.players.len(), 2);
+
+        // game.current_player().color;
+        // assert_eq!(game.turns.len(), 1) // a new turn created // TODO (to keep track on turn start time)
+        // game.valid_actions().collect();
+        // TODO: get action from origin + target position + current player
+        // game.perform_action(Action {
+        //     player: game.current_player(),
+        //     kind: ActionKind::PieceMove {
+        //         piece: game.board.tile_at().unwrap().any_active_piece_for_player().unwrap(),
+        //         path: vec![game.board.tile_at().first_edge(TileEdgeKind::CardinalDirection(CardinalDirection::North))],
+        //     },
+        // });
+        // assert_eq!(game.current_player(), game.players[1]) // assert switches players
+        // assert_eq!(game.turns.len(), 2) // a new turn created
+        // TODO: test invalid move
+        // TODO: force game state change, eg. resign
+        // TODO: capture piece
+        // TODO: unit test paths + movements etc
+        // TODO: "is_check" computed field + auto change to "checkmate" on move
+        game.board.print();
+        // TODO: using test + read in from PGN + check full existing matches
     }
 }
