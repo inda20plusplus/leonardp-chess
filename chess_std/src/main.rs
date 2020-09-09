@@ -41,7 +41,7 @@ fn main() -> Result<(), String> {
 	// game.perform_action(game.move_from_str("e4 g5")?)?;
 	// game.perform_action(game.move_from_str("b4 c2")?)?;
 	// game.perform_action(game.move_from_str("g5 f7")?)?;
-	println!("{}", game.board.print(BoardPrintStyle::ascii_pretty()));
+	println!("{}", game.board.print(BoardPrintStyle::ascii_bordered()));
 	println!("{}", game.status_message());
 
 	Ok(())

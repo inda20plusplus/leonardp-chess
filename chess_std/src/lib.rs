@@ -658,7 +658,14 @@ mod tests {
     }
 
     #[test]
-    fn move_types() -> Result<(), String> {
+    fn std_move_types() -> Result<(), String> {
+
+        // King: (n, w, e, s, nw, ne, sw, se)*1
+        // Queen: (n, w, e, s, nw, ne, sw, se)*inf
+        // Rook: (n, w, e, s)*inf
+        // Knight: L-shape (any closest tile not on same rank, file or diagonal), jumps_over_other_pieces: true
+        // Bishop: (nw, ne, sw, se)*inf
+
         let mut game = Game::new();
 
         game.perform_action(game.move_from_str("a2 a4")?)?;
@@ -672,21 +679,81 @@ mod tests {
         game.perform_action(game.move_from_str("a3 b4")?)
             .expect_err("rook cannot move diagonally");
         game.perform_action(game.move_from_str("a3 d3")?)?;
+    
+        game.perform_action(game.move_from_str("e7 e6")?)?;
+        game.perform_action(game.move_from_str("e2 e4")?)?;
+        game.perform_action(game.move_from_str("f8 a3")?)?;
+        game.perform_action(game.move_from_str("b1 a3")?)?;
+        game.perform_action(game.move_from_str("d8 e7")?)?;
+        game.perform_action(game.move_from_str("e1 e3")?)
+            .expect_err("king cannot move 2 steps");
+        game.perform_action(game.move_from_str("d1 h5")?)?;
 
-        // done: King: (n, w, e, s, nw, ne, sw, se)*1
-        // done: Queen: (n, w, e, s, nw, ne, sw, se)*inf
-        // done: Rook: (n, w, e, s)*inf
-        // done: Knight: L-shape (any closest tile not on same rank, file or diagonal), jumps_over_other_pieces: true
-        // done: Bishop: (nw, ne, sw, se)*inf
+
+        assert_eq!(game.board.print(BoardPrintStyle::ascii_bordered()), include_str!("../test_data/board_std_moves.txt"));
+	    assert_eq!(game.status_message(), "Active: White(3p), Black(0p); Black's move");
+
+        Ok(())
+    }
+
+    // #[test]
+    fn pawn_moves() -> Result<(), String> {
         
-        // not allowed to move such that player put itself in "check"
-        // King: castling (a, h)-side
         // Pawn: n*1
-        // Pawn: n*2 if piece.prev_movements.count=0
+        // Pawn: n*2 if piece.prev_movements.count=0 / piece at original position
         // Pawn: (nw, ne)*1 if can capture
         // Pawn: en_passant ((nw, ne)*1 if opponent.pawn did n*2 prev_turn and opponent.pawn.file = piece.file)
         // Pawn: promotion (convert (to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn))
 
+        let mut game = Game::new();
+
+        game.perform_action(game.move_from_str("a2 a5")?)
+            .expect_err("pawn can only move at max 2 steps initially");
+
+        game.perform_action(game.move_from_str("a2 a4")?)?; // 2 steps
+        game.perform_action(game.move_from_str("b7 b6")?)?; // 1 steps
+
+        game.perform_action(game.move_from_str("a4 a6")?)
+            .expect_err("pawn 2 step move only allowed from start pos");
+        game.perform_action(game.move_from_str("a4 a3")?)
+            .expect_err("no backwards");
+        game.perform_action(game.move_from_str("a4 b5")?)
+            .expect_err("no diagonal forward without capture (en_passant)");
+
+        game.perform_action(game.move_from_str("a4 a5")?)?;
+        game.perform_action(game.move_from_str("b6 a5")?)?; // diagonal capture
+
+        game.perform_action(game.move_from_str("a5 a4")?)?;
+        game.perform_action(game.move_from_str("b2 b4")?)?;
+        game.perform_action(game.move_from_str("a4 b3")?)?; // en_passant
+        game.perform_action(game.move_from_str("b4 b5")?)
+            .expect_err("captured using en_passant in previous turn");
+        game.perform_action(game.move_from_str("c2 c3")?)?; // en_passant made possible
+        game.perform_action(game.move_from_str("h7 h5")?)?; // forfeit en_passant move
+        game.perform_action(game.move_from_str("h2 h4")?)?;
+        game.perform_action(game.move_from_str("b3 c2")?)
+            .expect_err("en_passant only valid immediately after becoming possible");
+
+        game.perform_action(game.move_from_str("h5 h4")?)
+            .expect_err("pawn cannot capture forward");
+
+        // TODO: promotion
+
         Ok(())
+    }
+
+    // #[test]
+    fn king_moves() -> Result<(), String> {
+        
+        // not allowed to move such that player put itself in "check"
+        // King: castling (a, h)-side
+
+        // let mut game = Game::new();
+
+        // game.perform_action(game.move_from_str("a7 a4")?)
+        //     .expect_err("pawn can only move at max 2 steps initially")
+        
+        unimplemented!();
+        // Ok(())
     }
 }
