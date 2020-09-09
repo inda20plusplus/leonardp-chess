@@ -5,13 +5,21 @@
 // TODO: use test (unit)
 // TODO: use test (full GM replay using PGN)
 // TODO: replace all unwrap with correct error handling (send to end user)
+// TODO: use traits for PieceKind instead of enum (+ register)
 
 pub struct Game {
     pub board: Board,
     state: State,
     players: [Player; 2],
+    turns: Vec<Turn>,
 }
 
+struct Turn {
+    player: PlayerIndex,
+    actions: Vec<ActionPackage>,
+}
+
+#[derive(Debug)]
 enum State {
     Active,
     Ended(StateEnded),
@@ -31,6 +39,7 @@ enum Color {
 // TODO: use refs instead?
 type PlayerIndex = usize;
 
+#[derive(Debug)]
 enum StateEnded {
     Checkmate {winner: PlayerIndex},
     Resignation {winner: PlayerIndex},
@@ -39,6 +48,7 @@ enum StateEnded {
     Draw(StateEndedDraw),
 }
 
+#[derive(Debug)]
 enum StateEndedDraw {
     DrawByAgreement,
     Stalemate,
@@ -59,16 +69,19 @@ struct Tile {
     piece: Option<Piece>,
 }
 
-struct Position {
+#[derive(Debug, Copy, Clone)]
+pub struct Position {
     // (0, 0) is bottom left for white
     x: usize,
     y: usize,
 }
 
+#[derive(Debug, Copy, Clone)]
 struct File {
     n: usize,
 }
 
+#[derive(Debug, Copy, Clone)]
 struct Rank {
     n: usize,
 }
@@ -92,6 +105,27 @@ enum PieceKind {
 #[derive(Copy, Clone)]
 pub enum PrintStyle {
     Ascii,
+}
+
+#[derive(Copy, Clone)]
+pub struct BoardPrintStyle {
+    pub style: PrintStyle,
+    pub border: bool,
+    pub number: bool,
+}
+
+#[derive(Debug)]
+pub enum Action {
+    PieceMove {
+        origin: Position,
+        target: Position,
+    },
+}
+
+#[derive(Debug)]
+pub struct ActionPackage {
+    pub action: Action,
+    pub player: PlayerIndex,
 }
 
 struct PGNCommand {
@@ -134,7 +168,7 @@ impl PGNCommand {
 }
 
 impl Position {
-    fn from_str(source: &str) -> Option<Position> {
+    pub fn from_str(source: &str) -> Option<Position> {
         let mut chars = vec![];
 
         source.to_uppercase().chars().for_each(|a| chars.push(a));
@@ -160,14 +194,19 @@ impl Game {
                 Player::new(Color::White),
                 Player::new(Color::Black),
             ],
+            turns: vec![],
         };
+
+        game.turns.push(Turn {
+            player: game.player_white(),
+            actions: vec![],
+        });
 
         game.setup_initial_board_pieces();
 
         game
     }
-    fn player_white(&self) -> PlayerIndex { 0 }
-    fn player_black(&self) -> PlayerIndex { 1 }
+
     fn setup_initial_board_pieces(&mut self) {
         // TODO: assert call only once?
         self.add_pieces_from_str("Ra8 Nb8 Bc8 Kd8 Qe8 Bf8 Ng8 Rh8", self.player_black());
@@ -188,6 +227,111 @@ impl Game {
             .map(|x| x.unwrap())
             .for_each(|c| self.add_piece(player, c.position, c.piece.unwrap()));
     }
+
+    fn player_white(&self) -> PlayerIndex { 0 }
+    fn player_black(&self) -> PlayerIndex { 1 }
+    pub fn current_player_index(&self) -> PlayerIndex {
+        self.turns.last().unwrap().player
+    }
+    fn current_player(&self) -> &Player {
+        &self.players[self.current_player_index()]
+    }
+
+    fn validate_action(&self, action: &ActionPackage) -> Result<(), &str> {
+        // TODO: ®eturn err message?
+        let player = action.player;
+        if player!=self.current_player_index() {
+            return Result::Err("out of turn");
+        }
+        let action = &action.action;
+
+        match action {
+            Action::PieceMove {origin, target} => {
+                
+                let origin_tile = self.board.tile_at(*origin).ok_or("invalid origin tile")?;
+                let piece = origin_tile.piece.as_ref().ok_or("no piece at origin")?;
+                let target_tile = self.board.tile_at(*target).ok_or("invalid target tile")?;
+                
+                if piece.player!=player {
+                    return Result::Err("not players piece at origin");
+                }
+                if let Option::Some(target_piece) = target_tile.piece.as_ref() {
+                    if target_piece.player==player {
+                        return Result::Err("players piece at target");
+                    }
+                }
+                
+                let dy = (target.y as i32) - (origin.y as i32);
+                let dx = (target.x as i32) - (origin.x as i32);
+
+                piece.kind.delta_move_valid(dx, dy)
+            },
+        }
+    }
+
+    // TODO: make validate_action return wrapper (ValidatedActionPackage)
+    //  that may be performed directly?
+    pub fn perform_action(&mut self, action: ActionPackage) -> Result<(), String> {
+        if let Result::Err(e) = self.validate_action(&action) {
+            return Result::Err(e.to_owned())
+        }
+
+        match action.action {
+            Action::PieceMove {origin, target} => {
+                let piece = {
+                    let origin_tile = self.board.tile_at_mut(origin).unwrap();
+                    origin_tile.piece.take().unwrap()
+                };
+                let captured = {
+                    let target_tile = self.board.tile_at_mut(target).unwrap();
+                    target_tile.piece.replace(piece)
+                };
+
+                if let Option::Some(captured) = captured {
+                    let p = &mut self.players[self.current_player_index()];
+                    p.captured.push(captured);
+                }
+
+                let current_turn = self.turns.last_mut().unwrap();
+                current_turn.actions.push(action);
+
+                let player_next = if self.current_player_index()==0 { 1 } else { 0 };
+                self.turns.push(Turn {
+                    player: player_next,
+                    actions: vec![],
+                });
+
+                Result::Ok(())
+            }
+        }
+    }
+
+    pub fn move_from_str(&self, source: &str) -> Result<ActionPackage, &str> {
+        let components: Vec<&str> = source.split_ascii_whitespace().collect();
+        if components.len() != 2 {return Result::Err("expected format like 'a6 b8'")}
+        let ap = ActionPackage {
+            player: self.current_player_index(),
+            action: Action::PieceMove {
+                origin: Position::from_str(&components[0]).ok_or("invalid origin")?,
+                target: Position::from_str(&components[1]).ok_or("invalid target")?,
+            }
+        };
+        Result::Ok(ap)
+    }
+
+    pub fn status_message(&self) -> String {
+        match self.state {
+            State::Active => {
+                let players = self.players.iter().map(|p| {
+                    format!("{:?}({}p)", p.color, p.captured_value())
+                }).collect::<Vec<_>>().join(", ");
+                format!("{:?}: {}; {:?}'s move", self.state, players, self.current_player().color)
+            },
+            State::Ended(_) => {
+                format!("{:?}", self.state)
+            }
+        }
+    }
 }
 
 impl Player {
@@ -196,6 +340,9 @@ impl Player {
             color,
             captured: vec![],
         }
+    }
+    fn captured_value(&self) -> u32 {
+        self.captured.iter().map(|p| p.kind.value()).fold(0, |x, b| x+b)
     }
 }
 
@@ -237,6 +384,23 @@ impl PieceKind {
     fn from_str(source: &str) -> Option<PieceKind> {
         Self::from_letter(source)
     }
+    fn delta_move_valid(&self, dx: i32, dy: i32) -> Result<(), &str> {
+        match self {
+            PieceKind::Knight => {
+                let ok = match i32::abs(dy) {
+                    2 => i32::abs(dx)==1,
+                    1 => i32::abs(dx)==2,
+                    _ => false,
+                };
+                // println!("{:?} {} {} {}", self, dx, dy, ok);
+                match ok {
+                    true => Ok(()),
+                    false => Result::Err("invalid move"),
+                }
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 impl Board {
@@ -250,11 +414,12 @@ impl Board {
             }).collect(),
         }
     }
-    pub fn print(&self, style: PrintStyle) -> String {
+    pub fn print(&self, style: BoardPrintStyle) -> String {
         assert!(self.grid.len()>0);
 
-        let border = true;
-        let number = true;
+        let border = style.border;
+        let number = style.number;
+        let style = style.style;
 
         let inner = self.grid.iter().enumerate().map(|(y, row)| {
             let inner = row.iter().map(|tile| {
@@ -285,9 +450,16 @@ impl Board {
         } else {
             match number {
                 true => format!("   ╭{}╮\n{}\n   ╰{}╯\n    {} ", y_border, inner, y_border, nr_row),
-                false => format!("   ╭{}╮\n{}\n   ╰{}╯", y_border, inner, y_border),
+                false => format!("╭{}╮\n{}\n╰{}╯", y_border, inner, y_border),
             }
         }
+    }
+
+    fn tile_at(&self, position: Position) -> Option<&Tile> {
+        self.grid.get(position.y)?.get(position.x)
+    }
+    fn tile_at_mut(&mut self, position: Position) -> Option<&mut Tile> {
+        self.grid.get_mut(position.y)?.get_mut(position.x)
     }
 
     /*
@@ -303,6 +475,23 @@ impl Board {
       ╰────────────────────────╯
         A  B  C  D  E  F  G  H 
     */
+}
+
+impl BoardPrintStyle {
+    pub fn ascii_pretty() -> BoardPrintStyle {
+        BoardPrintStyle {
+            style: PrintStyle::Ascii,
+            border: true,
+            number: true,
+        }
+    }
+    pub fn ascii_bordered() -> BoardPrintStyle {
+        BoardPrintStyle {
+            style: PrintStyle::Ascii,
+            border: true,
+            number: false,
+        }
+    }
 }
 
 impl Tile {
@@ -371,5 +560,36 @@ mod tests {
         assert_eq!(c.piece.unwrap(), PieceKind::Knight);
         assert_eq!(c.position.x, 1);
         assert_eq!(c.position.y, 4);
+    }
+
+    #[test]
+    fn initial_board_setup() {
+        let game = Game::new();
+        let actual = game.board.print(BoardPrintStyle::ascii_bordered());
+	    assert_eq!(actual, include_str!("../test_data/board_plain.txt"));
+    }
+
+    #[test]
+    fn initial_knight_moves() {
+        let mut game = Game::new();
+        game.move_from_str("????").expect_err("invalid format");
+
+        game.perform_action(game.move_from_str("b1 d2").unwrap())
+            .expect_err("target tile occupied by players own piece");
+
+        game.perform_action(game.move_from_str("b1 b4").unwrap())
+            .expect_err("not a valid knight delta move");
+
+        game.perform_action(game.move_from_str("b1 c3").unwrap())
+            .expect("valid move");
+
+        game.perform_action(game.move_from_str("c3 e4").unwrap())
+            .expect_err("valid move, but not by current player");
+
+        game.perform_action(game.move_from_str("b8 d9").unwrap())
+            .expect_err("outside board");
+        
+        game.perform_action(game.move_from_str("b8 a6").unwrap())
+            .expect("valid move");
     }
 }
