@@ -78,6 +78,7 @@ struct Piece {
     color: Color,
 }
 
+#[derive(PartialEq, Debug)]
 enum PieceKind {
     King,
     Queen,
@@ -90,6 +91,63 @@ enum PieceKind {
 #[derive(Copy, Clone)]
 pub enum PrintStyle {
     Ascii,
+}
+
+struct PGNCommand {
+    piece: Option<PieceKind>,
+    position: Position,
+}
+
+impl PGNCommand {
+    fn from_str(source: &str) -> Option<PGNCommand> {
+        // TODO: DRY
+        match source.len() {
+            3 => {
+                let piece = PieceKind::from_str(&source[0..1]);
+                let position = Position::from_str(&source[1..3]);
+                
+                if let Option::Some(position) = position {
+                    Option::Some(PGNCommand {
+                        piece,
+                        position,
+                    })
+                } else {
+                    Option::None
+                }
+            },
+            2 => {
+                let position = Position::from_str(&source[1..3]);
+                
+                if let Option::Some(position) = position {
+                    Option::Some(PGNCommand {
+                        piece: Option::None,
+                        position,
+                    })
+                } else {
+                    Option::None
+                }
+            },
+            _ => Option::None,
+        }
+    }
+}
+
+impl Position {
+    fn from_str(source: &str) -> Option<Position> {
+        let mut chars = vec![];
+
+        source.to_uppercase().chars().for_each(|a| chars.push(a));
+        if chars.len()!=2 {return Option::None}
+        
+        let (x, y) = (chars[0] as u8, chars[1] as u8);
+        if x < b'A' || x > b'Z' {return Option::None}
+        if y < b'0' || y > b'9' {return Option::None}
+
+        let x = x-b'A';
+        let y = y-b'1';
+
+        Option::Some(Position { x: x as usize, y: y as usize })
+    }
 }
 
 impl Game {
@@ -114,6 +172,17 @@ impl Game {
         let pawn = Piece::new(PieceKind::Pawn, self.player_white(), self);
         let tile = &mut self.board.grid[0][0];
         tile.piece = Option::Some(pawn);
+
+
+        // let a = "Ra8 Nb8 Bc8 Kd8 Qe8 Bf8 Ng8 Rh8".split_ascii_whitespace().map();
+
+        // "Pa7 Pb7 Pc7 Pd7 Pe7 Pf7 Pg7 Ph7"
+
+        // "Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2"
+        // "Ra1 Nb1 Bc1 Qd1 Ke1 Bf1 Ng1 Rh1"
+    }
+    fn add_piece(&mut self, player: PlayerIndex, position: Position) {
+
     }
 }
 
@@ -148,6 +217,21 @@ impl PieceKind {
             PieceKind::Bishop   => ("B", "♗", "♝", 3),
             PieceKind::Pawn     => ("P", "♙", "♟", 1),
         }
+    }
+    fn from_letter (letter: &str) -> Option<PieceKind> {
+        // TODO: auto gen from ascii_meta / keep DRY
+        match letter {
+            "K" => Option::Some(PieceKind::King),
+            "Q" => Option::Some(PieceKind::Queen),
+            "R" => Option::Some(PieceKind::Rook),
+            "N" => Option::Some(PieceKind::Knight),
+            "B" => Option::Some(PieceKind::Bishop),
+            "P" => Option::Some(PieceKind::Pawn),
+            _ => Option::None,
+        }
+    }
+    fn from_str(source: &str) -> Option<PieceKind> {
+        Self::from_letter(source)
     }
 }
 
@@ -269,8 +353,19 @@ impl File {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn it_works() {
         assert_eq!(2 + 2, 4);
+    }
+    #[test]
+    fn pgn_command_simple_parsing() {
+        let c = PGNCommand::from_str("Nb5");
+        assert!(c.is_some());
+        let c = c.unwrap();
+        assert_eq!(c.piece.unwrap(), PieceKind::Knight);
+        assert_eq!(c.position.x, 1);
+        assert_eq!(c.position.y, 4);
     }
 }
