@@ -72,6 +72,7 @@ struct Tile {
 #[derive(Debug, Copy, Clone)]
 pub struct Position {
     // (0, 0) is bottom left for white
+    // TODO: consider using i32 instead?
     x: usize,
     y: usize,
 }
@@ -183,6 +184,10 @@ impl Position {
 
         Option::Some(Position { x: x as usize, y: y as usize })
     }
+    pub fn to_string(&self) -> String {
+        let file = File::new(self.x).print(PrintStyle::Ascii);
+        format!("{}{}", file, self.y)
+    }
 }
 
 impl Game {
@@ -261,10 +266,31 @@ impl Game {
                     }
                 }
                 
-                let dy = (target.y as i32) - (origin.y as i32);
                 let dx = (target.x as i32) - (origin.x as i32);
+                let dy = (target.y as i32) - (origin.y as i32);
 
-                piece.kind.delta_move_valid(dx, dy)
+                piece.kind.delta_move_valid(dx, dy)?;
+                
+                // TODO: check special move constraints
+                //  eg. limit direction + initial move + diagonal + end rank for pawn
+                //  eg. castling for king
+
+                if !piece.kind.jumps() {
+                    let steps = piece.kind.delta_steps(dx, dy);
+                    let mut pos = origin_tile.position;
+                    for step in steps {
+                        // make step
+                        pos.x = ((pos.x as i32) + step.0) as usize;
+                        pos.y = ((pos.y as i32) + step.1) as usize;
+                        // check
+                        let intermediate_tile = self.board.tile_at(pos).ok_or("invalid intermediate tile")?;
+                        if intermediate_tile.piece.is_some() {
+                            return Result::Err("a piece was in the way");
+                        }
+                    }
+                }
+
+                Ok(())
             },
         }
     }
@@ -384,22 +410,60 @@ impl PieceKind {
     fn from_str(source: &str) -> Option<PieceKind> {
         Self::from_letter(source)
     }
-    fn delta_move_valid(&self, dx: i32, dy: i32) -> Result<(), &str> {
+    fn jumps(&self) -> bool {
         match self {
+            PieceKind::Knight => true,
+            _ => false,
+        }
+    }
+    fn delta_move_valid(&self, dx: i32, dy: i32) -> Result<(), &str> {
+        let any_move = dx!=0 || dy!=0;
+        let is_diagonal = i32::abs(dx)==i32::abs(dy);
+        let is_vertical = dx==0;
+        let is_horizontal = dy==0;
+        let is_straight = is_vertical || is_horizontal;
+        let max_one = i32::abs(dx)<=1 && i32::abs(dy)<=1;
+
+        let ok = match self {
+            PieceKind::King => {
+                any_move && max_one
+            },
+            PieceKind::Queen => {
+                any_move && (is_diagonal || is_straight)
+            },
+            PieceKind::Rook => {
+                any_move && is_straight
+            },
             PieceKind::Knight => {
-                let ok = match i32::abs(dy) {
+                match i32::abs(dy) {
                     2 => i32::abs(dx)==1,
                     1 => i32::abs(dx)==2,
                     _ => false,
-                };
-                // println!("{:?} {} {} {}", self, dx, dy, ok);
-                match ok {
-                    true => Ok(()),
-                    false => Result::Err("invalid move"),
                 }
-            }
-            _ => unimplemented!(),
+            },
+            PieceKind::Bishop => {
+                any_move && is_diagonal
+            },
+            PieceKind::Pawn => {
+                any_move && ((is_diagonal && max_one) || is_vertical)
+            },
+        };
+        match ok {
+            true => Ok(()),
+            false => Result::Err("invalid move"),
         }
+    }
+    fn delta_steps(&self, dx: i32, dy: i32) -> Vec<(i32, i32)> {
+        // TODO: optimisation(minor): convertable to iterator,
+        //  thus only generating as "tiles are explored"
+        let dxs: Vec<i32> = (0..i32::abs(dx)).map(|_| if dx < 0 {-1} else {1}).collect();
+        let dys: Vec<i32> = (0..i32::abs(dy)).map(|_| if dy < 0 {-1} else {1}).collect();
+        let steps = (0..usize::max(dxs.len(), dys.len())).map(|i| {
+            let dy = *dys.get(i).unwrap_or(&0);
+            let dx = *dxs.get(i).unwrap_or(&0);
+            (dx, dy)
+        }).collect();
+        steps
     }
 }
 
@@ -534,7 +598,7 @@ impl File {
         }
     }
     fn print(&self, style: PrintStyle) -> String {
-        assert!(self.n<15);
+        assert!(self.n < (b'Z' - b'A') as usize);
         match style {
             PrintStyle::Ascii => {
                 String::from_utf8_lossy(&[(self.n as u8)+b'A']).to_owned().to_string()
@@ -591,5 +655,38 @@ mod tests {
         
         game.perform_action(game.move_from_str("b8 a6").unwrap())
             .expect("valid move");
+    }
+
+    #[test]
+    fn move_types() -> Result<(), String> {
+        let mut game = Game::new();
+
+        game.perform_action(game.move_from_str("a2 a4")?)?;
+        game.perform_action(game.move_from_str("a8 a6")?)
+            .expect_err("a piece was in the way");
+        // game.perform_action(game.move_from_str("a7 a4")?)
+        // 	.expect_err("pawn can only move at max 2 steps initially")
+        game.perform_action(game.move_from_str("a7 a6")?)?;
+        game.perform_action(game.move_from_str("a1 a3")?)?;
+        game.perform_action(game.move_from_str("a6 a5")?)?;
+        game.perform_action(game.move_from_str("a3 b4")?)
+            .expect_err("rook cannot move diagonally");
+        game.perform_action(game.move_from_str("a3 d3")?)?;
+
+        // done: King: (n, w, e, s, nw, ne, sw, se)*1
+        // done: Queen: (n, w, e, s, nw, ne, sw, se)*inf
+        // done: Rook: (n, w, e, s)*inf
+        // done: Knight: L-shape (any closest tile not on same rank, file or diagonal), jumps_over_other_pieces: true
+        // done: Bishop: (nw, ne, sw, se)*inf
+        
+        // not allowed to move such that player put itself in "check"
+        // King: castling (a, h)-side
+        // Pawn: n*1
+        // Pawn: n*2 if piece.prev_movements.count=0
+        // Pawn: (nw, ne)*1 if can capture
+        // Pawn: en_passant ((nw, ne)*1 if opponent.pawn did n*2 prev_turn and opponent.pawn.file = piece.file)
+        // Pawn: promotion (convert (to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn))
+
+        Ok(())
     }
 }
