@@ -4,6 +4,7 @@
 // TODO: use mod + pub
 // TODO: use test (unit)
 // TODO: use test (full GM replay using PGN)
+// TODO: replace all unwrap with correct error handling (send to end user)
 
 pub struct Game {
     pub board: Board,
@@ -169,20 +170,23 @@ impl Game {
     fn player_black(&self) -> PlayerIndex { 1 }
     fn setup_initial_board_pieces(&mut self) {
         // TODO: assert call only once?
-        let pawn = Piece::new(PieceKind::Pawn, self.player_white(), self);
-        let tile = &mut self.board.grid[0][0];
-        tile.piece = Option::Some(pawn);
+        self.add_pieces_from_str("Ra8 Nb8 Bc8 Kd8 Qe8 Bf8 Ng8 Rh8", self.player_black());
+        self.add_pieces_from_str("Pa7 Pb7 Pc7 Pd7 Pe7 Pf7 Pg7 Ph7", self.player_black());
 
-
-        // let a = "Ra8 Nb8 Bc8 Kd8 Qe8 Bf8 Ng8 Rh8".split_ascii_whitespace().map();
-
-        // "Pa7 Pb7 Pc7 Pd7 Pe7 Pf7 Pg7 Ph7"
-
-        // "Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2"
-        // "Ra1 Nb1 Bc1 Qd1 Ke1 Bf1 Ng1 Rh1"
+        self.add_pieces_from_str("Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2", self.player_white());
+        self.add_pieces_from_str("Ra1 Nb1 Bc1 Qd1 Ke1 Bf1 Ng1 Rh1", self.player_white());
     }
-    fn add_piece(&mut self, player: PlayerIndex, position: Position) {
-
+    fn add_piece(&mut self, player: PlayerIndex, position: Position, kind: PieceKind) {
+        let piece = Piece::new(kind, player, self);
+        let tile = &mut self.board.grid[position.y][position.x];
+        assert!(tile.piece.is_none());
+        tile.piece = Option::Some(piece);
+    }
+    fn add_pieces_from_str(&mut self, source: &str, player: PlayerIndex) {
+        source.split_ascii_whitespace()
+            .map(PGNCommand::from_str)
+            .map(|x| x.unwrap())
+            .for_each(|c| self.add_piece(player, c.position, c.piece.unwrap()));
     }
 }
 
@@ -215,7 +219,7 @@ impl PieceKind {
             PieceKind::Rook     => ("R", "♖", "♜", 5),
             PieceKind::Knight   => ("N", "♘", "♞", 3),
             PieceKind::Bishop   => ("B", "♗", "♝", 3),
-            PieceKind::Pawn     => ("P", "♙", "♟", 1),
+            PieceKind::Pawn     => ("P", "♙", "♟︎", 1),
         }
     }
     fn from_letter (letter: &str) -> Option<PieceKind> {
