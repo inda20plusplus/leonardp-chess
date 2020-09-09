@@ -256,7 +256,7 @@ impl Board {
         let border = true;
         let number = true;
 
-        let inner = self.grid.iter().rev().enumerate().map(|(y, row)| {
+        let inner = self.grid.iter().enumerate().map(|(y, row)| {
             let inner = row.iter().map(|tile| {
                 tile.print(style)
             }).collect::<Vec<String>>().join("");
@@ -268,7 +268,7 @@ impl Board {
                 (true, false) => format!(" {} {}", nr, inner),
                 (false, false) => format!("{}", inner),
             }
-        }).collect::<Vec<String>>().join("\n");
+        }).rev().collect::<Vec<String>>().join("\n");
 
         let cols = self.grid[0].len();
         // TODO: resolve "closure is different" reuse/DRY issue
