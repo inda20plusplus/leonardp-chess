@@ -1,7 +1,7 @@
 # indachess
 *Chess rule engine in rust, see chess_std*
 
-![chessboard](docs/chessboard.png)
+![chessboard](docs/chessboard_moved.png)
 
 ### Quick start:
 
