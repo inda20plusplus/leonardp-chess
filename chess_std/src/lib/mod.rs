@@ -8,8 +8,18 @@
 // TODO: use traits for PieceKind instead of enum (+ register)
 // TODO: clean up Some, None, Ok, Err (use directly without ::)
 
+mod color;
+mod pgn;
 mod piece;
+mod position;
+mod view;
+
+use color::*;
+use pgn::*;
 use piece::PieceKind;
+use position::File;
+pub use position::Position;
+pub use view::*;
 
 #[derive(Clone)]
 pub struct Game {
@@ -35,12 +45,6 @@ enum State {
 struct Player {
     color: Color,
     captured: Vec<Piece>,
-}
-
-#[derive(Debug, Copy, Clone)]
-enum Color {
-    White,
-    Black,
 }
 
 // TODO: use refs instead?
@@ -78,41 +82,11 @@ struct Tile {
     piece: Option<Piece>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Position {
-    // (0, 0) is bottom left for white
-    // TODO: consider using i32 instead?
-    x: usize,
-    y: usize,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct File {
-    n: usize,
-}
-
-#[derive(Debug, Copy, Clone)]
-struct Rank {
-    n: usize,
-}
-
 #[derive(Clone)]
 struct Piece {
     kind: PieceKind,
     player: PlayerIndex,
     color: Color,
-}
-
-#[derive(Copy, Clone)]
-pub enum PrintStyle {
-    Ascii,
-}
-
-#[derive(Copy, Clone)]
-pub struct BoardPrintStyle {
-    pub style: PrintStyle,
-    pub border: bool,
-    pub number: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -131,73 +105,6 @@ enum ActionValidation {
     Standard,
     EnPassant { capture_tile: Position },
     Promotion,
-}
-
-struct PGNCommand {
-    piece: Option<PieceKind>,
-    position: Position,
-}
-
-impl PGNCommand {
-    fn from_str(source: &str) -> Option<PGNCommand> {
-        // TODO: DRY
-        match source.len() {
-            3 => {
-                let piece = PieceKind::from_str(&source[0..1]);
-                let position = Position::from_str(&source[1..3]);
-
-                if let Option::Some(position) = position {
-                    Option::Some(PGNCommand { piece, position })
-                } else {
-                    Option::None
-                }
-            }
-            2 => {
-                let position = Position::from_str(&source[1..3]);
-
-                if let Option::Some(position) = position {
-                    Option::Some(PGNCommand {
-                        piece: Option::None,
-                        position,
-                    })
-                } else {
-                    Option::None
-                }
-            }
-            _ => Option::None,
-        }
-    }
-}
-
-impl Position {
-    pub fn from_str(source: &str) -> Option<Position> {
-        let mut chars = vec![];
-
-        source.to_uppercase().chars().for_each(|a| chars.push(a));
-        if chars.len() != 2 {
-            return Option::None;
-        }
-
-        let (x, y) = (chars[0] as u8, chars[1] as u8);
-        if x < b'A' || x > b'Z' {
-            return Option::None;
-        }
-        if y < b'0' || y > b'9' {
-            return Option::None;
-        }
-
-        let x = x - b'A';
-        let y = y - b'1';
-
-        Option::Some(Position {
-            x: x as usize,
-            y: y as usize,
-        })
-    }
-    pub fn to_string_code(&self) -> String {
-        let file = File::new(self.x).print(PrintStyle::Ascii);
-        format!("{}{}", file, self.y + 1)
-    }
 }
 
 impl Game {
@@ -512,10 +419,7 @@ impl Player {
         }
     }
     fn captured_value(&self) -> u32 {
-        self.captured
-            .iter()
-            .map(|p| p.kind.value())
-            .sum()
+        self.captured.iter().map(|p| p.kind.value()).sum()
     }
     fn dy_forward(&self) -> i32 {
         match self.color {
@@ -534,95 +438,6 @@ impl Player {
     fn is_pawn_home(&self, board: &Board, pawn_position: Position) -> bool {
         let home_y = self.home_row(board) + self.dy_forward();
         (pawn_position.y as i32) == home_y
-    }
-}
-
-impl PieceKind {
-    fn letter(&self) -> &str {
-        self.ascii_meta().0
-    }
-    fn ascii(&self, color: Color) -> &str {
-        match color {
-            Color::White => self.ascii_meta().2,
-            Color::Black => self.ascii_meta().1,
-        }
-    }
-    fn value(&self) -> u32 {
-        self.ascii_meta().3
-    }
-    fn ascii_meta(&self) -> (&str, &str, &str, u32) {
-        match self {
-            PieceKind::King => ("K", "♔", "♚", 9),
-            PieceKind::Queen => ("Q", "♕", "♛", 9),
-            PieceKind::Rook => ("R", "♖", "♜", 5),
-            PieceKind::Knight => ("N", "♘", "♞", 3),
-            PieceKind::Bishop => ("B", "♗", "♝", 3),
-            PieceKind::Pawn => ("P", "♙", "♟︎", 1),
-        }
-    }
-    fn from_letter(letter: &str) -> Option<PieceKind> {
-        // TODO: auto gen from ascii_meta / keep DRY
-        match letter {
-            "K" => Option::Some(PieceKind::King),
-            "Q" => Option::Some(PieceKind::Queen),
-            "R" => Option::Some(PieceKind::Rook),
-            "N" => Option::Some(PieceKind::Knight),
-            "B" => Option::Some(PieceKind::Bishop),
-            "P" => Option::Some(PieceKind::Pawn),
-            _ => Option::None,
-        }
-    }
-    fn from_str(source: &str) -> Option<PieceKind> {
-        Self::from_letter(source)
-    }
-    fn jumps(&self) -> bool {
-        match self {
-            PieceKind::Knight => true,
-            _ => false,
-        }
-    }
-    fn delta_move_valid(&self, dx: i32, dy: i32) -> Result<(), &str> {
-        let any_move = dx != 0 || dy != 0;
-        let is_diagonal = i32::abs(dx) == i32::abs(dy);
-        let is_vertical = dx == 0;
-        let is_horizontal = dy == 0;
-        let is_straight = is_vertical || is_horizontal;
-        let max_one = i32::abs(dx) <= 1 && i32::abs(dy) <= 1;
-
-        let ok = match self {
-            PieceKind::King => any_move && max_one,
-            PieceKind::Queen => any_move && (is_diagonal || is_straight),
-            PieceKind::Rook => any_move && is_straight,
-            PieceKind::Knight => match i32::abs(dy) {
-                2 => i32::abs(dx) == 1,
-                1 => i32::abs(dx) == 2,
-                _ => false,
-            },
-            PieceKind::Bishop => any_move && is_diagonal,
-            PieceKind::Pawn => any_move && ((is_diagonal && max_one) || is_vertical),
-        };
-        match ok {
-            true => Ok(()),
-            false => Result::Err("invalid move"),
-        }
-    }
-    fn delta_steps(&self, dx: i32, dy: i32) -> Vec<(i32, i32)> {
-        // TODO: optimisation(minor): convertable to iterator,
-        //  thus only generating as "tiles are explored"
-        let dxs: Vec<i32> = (0..i32::abs(dx))
-            .map(|_| if dx < 0 { -1 } else { 1 })
-            .collect();
-        let dys: Vec<i32> = (0..i32::abs(dy))
-            .map(|_| if dy < 0 { -1 } else { 1 })
-            .collect();
-
-        (0..usize::max(dxs.len(), dys.len()))
-            .map(|i| {
-                let dy = *dys.get(i).unwrap_or(&0);
-                let dx = *dxs.get(i).unwrap_or(&0);
-                (dx, dy)
-            })
-            .collect()
     }
 }
 
@@ -723,23 +538,6 @@ impl Board {
     */
 }
 
-impl BoardPrintStyle {
-    pub fn ascii_pretty() -> BoardPrintStyle {
-        BoardPrintStyle {
-            style: PrintStyle::Ascii,
-            border: true,
-            number: true,
-        }
-    }
-    pub fn ascii_bordered() -> BoardPrintStyle {
-        BoardPrintStyle {
-            style: PrintStyle::Ascii,
-            border: true,
-            number: false,
-        }
-    }
-}
-
 impl Tile {
     fn color(&self) -> Color {
         let checker_pattern_color_same_as_bottom_left_for_white =
@@ -772,37 +570,9 @@ impl Piece {
     }
 }
 
-impl File {
-    fn new(n: usize) -> File {
-        File { n }
-    }
-    fn print(&self, style: PrintStyle) -> String {
-        assert!(self.n < (b'Z' - b'A') as usize);
-        match style {
-            PrintStyle::Ascii => String::from_utf8_lossy(&[(self.n as u8) + b'A'])
-                .to_owned()
-                .to_string(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-    #[test]
-    fn pgn_command_simple_parsing() {
-        let c = PGNCommand::from_str("Nb5");
-        assert!(c.is_some());
-        let c = c.unwrap();
-        assert_eq!(c.piece.unwrap(), PieceKind::Knight);
-        assert_eq!(c.position.x, 1);
-        assert_eq!(c.position.y, 4);
-    }
 
     #[test]
     fn initial_board_setup() {
