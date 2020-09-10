@@ -1,5 +1,3 @@
-
-
 #[derive(PartialEq, Debug, Clone)]
 pub enum PieceKind {
     King,
