@@ -199,9 +199,9 @@ impl Position {
 }
 
 impl Game {
-    pub fn new() -> Game {
+    fn new_black_white(board: Board) -> Game {
         let mut game = Game {
-            board: Board::new(),
+            board,
             state: State::Active,
             players: [
                 Player::new(Color::White),
@@ -211,22 +211,32 @@ impl Game {
         };
 
         game.turns.push(Turn {
-            player: game.player_white(),
+            player: game.player_white_index(),
             actions: vec![],
         });
 
-        game.setup_initial_board_pieces();
-
+        game
+    }
+    fn new() -> Game {
+        Self::new_black_white(Board::new(8, 8))
+    }
+    pub fn new_standard_game() -> Game {
+        let mut game = Self::new();
+        game.setup_standard_board_pieces();
+        game
+    }
+    pub fn new_5x5_empty() -> Game {
+        let game = Self::new_black_white(Board::new(5, 5));
         game
     }
 
-    fn setup_initial_board_pieces(&mut self) {
+    pub fn setup_standard_board_pieces(&mut self) {
         // TODO: assert call only once?
-        self.add_pieces_from_str("Ra8 Nb8 Bc8 Kd8 Qe8 Bf8 Ng8 Rh8", self.player_black());
-        self.add_pieces_from_str("Pa7 Pb7 Pc7 Pd7 Pe7 Pf7 Pg7 Ph7", self.player_black());
+        self.add_pieces_from_str("Ra8 Nb8 Bc8 Kd8 Qe8 Bf8 Ng8 Rh8", self.player_black_index());
+        self.add_pieces_from_str("Pa7 Pb7 Pc7 Pd7 Pe7 Pf7 Pg7 Ph7", self.player_black_index());
 
-        self.add_pieces_from_str("Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2", self.player_white());
-        self.add_pieces_from_str("Ra1 Nb1 Bc1 Qd1 Ke1 Bf1 Ng1 Rh1", self.player_white());
+        self.add_pieces_from_str("Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2", self.player_white_index());
+        self.add_pieces_from_str("Ra1 Nb1 Bc1 Qd1 Ke1 Bf1 Ng1 Rh1", self.player_white_index());
     }
     fn add_piece(&mut self, player: PlayerIndex, position: Position, kind: PieceKind) {
         let piece = Piece::new(kind, player, self);
@@ -234,20 +244,23 @@ impl Game {
         assert!(tile.piece.is_none());
         tile.piece = Option::Some(piece);
     }
-    fn add_pieces_from_str(&mut self, source: &str, player: PlayerIndex) {
+    pub fn add_pieces_from_str(&mut self, source: &str, player: PlayerIndex) {
         source.split_ascii_whitespace()
             .map(PGNCommand::from_str)
             .map(|x| x.unwrap())
             .for_each(|c| self.add_piece(player, c.position, c.piece.unwrap()));
     }
 
-    fn player_white(&self) -> PlayerIndex { 0 }
-    fn player_black(&self) -> PlayerIndex { 1 }
+    pub fn player_white_index(&self) -> PlayerIndex { 0 }
+    pub fn player_black_index(&self) -> PlayerIndex { 1 }
     pub fn current_player_index(&self) -> PlayerIndex {
         self.turns.last().unwrap().player
     }
     fn current_player(&self) -> &Player {
         &self.players[self.current_player_index()]
+    }
+    pub fn current_player_title(&self) -> String {
+        format!("{:?}", self.current_player().color)
     }
 
     fn validate_action(&self, action: &ActionPackage) -> Result<ActionValidation, &str> {
@@ -299,7 +312,7 @@ impl Game {
                             return Result::Err("pawn cannot capture forward");
                         }
 
-                        if i32::abs(dy)==2 && !player.is_pawn_home(origin_tile.position) {
+                        if i32::abs(dy)==2 && !player.is_pawn_home(&self.board, origin_tile.position) {
                             return Result::Err("pawn can only two-step-move starting from home");
                         }
 
@@ -421,9 +434,9 @@ impl Game {
         }
     }
 
-    pub fn move_from_str(&self, source: &str) -> Result<ActionPackage, &str> {
+    pub fn move_from_str(&self, source: &str) -> Result<ActionPackage, String> {
         let components: Vec<&str> = source.split_ascii_whitespace().collect();
-        if components.len() != 2 {return Result::Err("expected format like 'a6 b8'")}
+        if components.len() != 2 {return Result::Err("expected format like 'a6 b8'".to_owned())}
         let ap = ActionPackage {
             player: self.current_player_index(),
             action: Action::PieceMove {
@@ -447,6 +460,20 @@ impl Game {
             }
         }
     }
+
+    fn piece_moved_from_original_position(&self, piece: &Piece, tile: &Tile) -> bool {
+        // TODO: simplified, not fully correct implementation
+        //  eg. not actually directly keeping track of whether piece has moved, just using lossy heuristics
+        // TODO: ability to get piece's current tile from piece
+
+        let player = &self.players[piece.player];
+        let is_home = match piece.kind {
+            PieceKind::Pawn => player.is_pawn_home(&self.board, tile.position),
+            _ => player.home_row(&self.board)==(tile.position.y as i32),
+        };
+
+        !is_home
+    }
 }
 
 impl Player {
@@ -465,13 +492,16 @@ impl Player {
             Color::Black => -1,
         }
     }
-    fn is_pawn_home(&self, pawn_position: Position) -> bool {
-        let rows = 8;
-        let last = rows-1;
-        let home_y = match self.color {
-            Color::White => 0 + self.dy_forward(),
-            Color::Black => last + self.dy_forward(),
+    fn home_row(&self, board: &Board) -> i32 {
+        let last = board.row_count()-1;
+        let row = match self.color {
+            Color::White => 0,
+            Color::Black => last,
         };
+        row as i32
+    }
+    fn is_pawn_home(&self, board: &Board, pawn_position: Position) -> bool {
+        let home_y = self.home_row(board) + self.dy_forward();
         (pawn_position.y as i32)==home_y
     }
 }
@@ -572,11 +602,11 @@ impl PieceKind {
 }
 
 impl Board {
-    fn new() -> Board {
+    fn new(rows: u32, cols: u32) -> Board {
         Board {
-            grid: (0..8).map(|row| {
-                (0..8).map(|col| Tile {
-                    position: Position {x: col, y: row},
+            grid: (0..rows).map(|row| {
+                (0..cols).map(|col| Tile {
+                    position: Position {x: col as usize, y: row as usize},
                     piece: Option::None,
                 }).collect()
             }).collect(),
@@ -628,6 +658,10 @@ impl Board {
     }
     fn tile_at_mut(&mut self, position: Position) -> Option<&mut Tile> {
         self.grid.get_mut(position.y)?.get_mut(position.x)
+    }
+
+    fn row_count(&self) -> u32 {
+        self.grid.len() as u32
     }
 
     /*
@@ -732,14 +766,14 @@ mod tests {
 
     #[test]
     fn initial_board_setup() {
-        let game = Game::new();
+        let game = Game::new_standard_game();
         let actual = game.board.print(BoardPrintStyle::ascii_bordered());
 	    assert_eq!(actual, include_str!("../test_data/board_plain.txt"));
     }
 
     #[test]
     fn initial_knight_moves() {
-        let mut game = Game::new();
+        let mut game = Game::new_standard_game();
         game.move_from_str("????").expect_err("invalid format");
 
         game.perform_action(game.move_from_str("b1 d2").unwrap())
@@ -770,7 +804,7 @@ mod tests {
         // Knight: L-shape (any closest tile not on same rank, file or diagonal), jumps_over_other_pieces: true
         // Bishop: (nw, ne, sw, se)*inf
 
-        let mut game = Game::new();
+        let mut game = Game::new_standard_game();
 
         game.perform_action(game.move_from_str("a2 a4")?)?;
         game.perform_action(game.move_from_str("a8 a6")?)
@@ -809,7 +843,7 @@ mod tests {
         // Pawn: en_passant ((nw, ne)*1 if opponent.pawn did n*2 prev_turn and opponent.pawn.file = piece.file)
         // Pawn: promotion (convert (to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn))
 
-        let mut game = Game::new();
+        let mut game = Game::new_standard_game();
 
         game.perform_action(game.move_from_str("a2 a5")?)
             .expect_err("pawn can only move at max 2 steps initially");
@@ -853,7 +887,9 @@ mod tests {
         // not allowed to move such that player put itself in "check"
         // King: castling (a, h)-side
 
-        // let mut game = Game::new();
+        let mut game = Game::new();
+        game.add_pieces_from_str("Kd8", game.player_black_index());
+        game.add_pieces_from_str("Kd8", game.player_white_index());
 
         // game.perform_action(game.move_from_str("a7 a4")?)
         //     .expect_err("pawn can only move at max 2 steps initially")
