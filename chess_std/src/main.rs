@@ -2,7 +2,7 @@ mod repl;
 mod lib;
 
 use repl::GameRepl;
-use crate::lib::*;
+use lib::*;
 use std::io::{self, BufRead, Result as IOResult};
 
 type IOResultPlain = IOResult<()>;

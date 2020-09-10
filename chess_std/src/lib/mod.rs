@@ -8,6 +8,10 @@
 // TODO: use traits for PieceKind instead of enum (+ register)
 // TODO: clean up Some, None, Ok, Err (use directly without ::)
 
+mod piece;
+use piece::{PieceKind};
+
+
 #[derive(Clone)]
 pub struct Game {
     pub board: Board,
@@ -98,16 +102,6 @@ struct Piece {
     kind: PieceKind,
     player: PlayerIndex,
     color: Color,
-}
-
-#[derive(PartialEq, Debug, Clone)]
-enum PieceKind {
-    King,
-    Queen,
-    Rook,
-    Knight,
-    Bishop,
-    Pawn,
 }
 
 #[derive(Copy, Clone)]
