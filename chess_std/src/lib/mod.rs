@@ -194,7 +194,7 @@ impl Position {
             y: y as usize,
         })
     }
-    pub fn to_string(&self) -> String {
+    pub fn to_string_code(&self) -> String {
         let file = File::new(self.x).print(PrintStyle::Ascii);
         format!("{}{}", file, self.y + 1)
     }
@@ -225,8 +225,7 @@ impl Game {
         game
     }
     pub fn new_5x5_empty() -> Game {
-        let game = Self::new_black_white(Board::new(5, 5));
-        game
+        Self::new_black_white(Board::new(5, 5))
     }
 
     pub fn setup_standard_board_pieces(&mut self) {
@@ -346,14 +345,13 @@ impl Game {
                                 .scan(0, |_, action| match action.action {
                                     Action::PieceMove { origin: _, target } => Some(target),
                                 })
-                                .filter(|action_target_pos| {
+                                .find(|action_target_pos| {
                                     let pos = action_target_pos;
                                     let same_file = pos.x == target_tile.position.x;
                                     let rank_before = (pos.y as i32)
                                         == (target_tile.position.y as i32) - dy_forward;
                                     same_file && rank_before
-                                })
-                                .next();
+                                });
 
                             let capture_tile_pos = match just_moved_past {
                                 Some(inner) => inner,
@@ -517,7 +515,7 @@ impl Player {
         self.captured
             .iter()
             .map(|p| p.kind.value())
-            .fold(0, |x, b| x + b)
+            .sum()
     }
     fn dy_forward(&self) -> i32 {
         match self.color {
@@ -617,14 +615,14 @@ impl PieceKind {
         let dys: Vec<i32> = (0..i32::abs(dy))
             .map(|_| if dy < 0 { -1 } else { 1 })
             .collect();
-        let steps = (0..usize::max(dxs.len(), dys.len()))
+
+        (0..usize::max(dxs.len(), dys.len()))
             .map(|i| {
                 let dy = *dys.get(i).unwrap_or(&0);
                 let dx = *dxs.get(i).unwrap_or(&0);
                 (dx, dy)
             })
-            .collect();
-        steps
+            .collect()
     }
 }
 
@@ -647,7 +645,7 @@ impl Board {
         }
     }
     pub fn print(&self, style: BoardPrintStyle) -> String {
-        assert!(self.grid.len() > 0);
+        assert!(!self.grid.is_empty());
 
         let border = style.border;
         let number = style.number;
@@ -669,7 +667,7 @@ impl Board {
                     (true, true) => format!(" {} │{}│", nr, inner),
                     (false, true) => format!("│{}│", inner),
                     (true, false) => format!(" {} {}", nr, inner),
-                    (false, false) => format!("{}", inner),
+                    (false, false) => inner,
                 }
             })
             .rev()
@@ -686,7 +684,7 @@ impl Board {
         if !border {
             match number {
                 true => format!("{}\n{}", inner, nr_row),
-                false => format!("{}", inner),
+                false => inner,
             }
         } else {
             match number {
@@ -810,7 +808,7 @@ mod tests {
     fn initial_board_setup() {
         let game = Game::new_standard_game();
         let actual = game.board.print(BoardPrintStyle::ascii_bordered());
-        assert_eq!(actual, include_str!("../test_data/board_plain.txt"));
+        assert_eq!(actual, include_str!("../../test_data/board_plain.txt"));
     }
 
     #[test]
@@ -870,7 +868,7 @@ mod tests {
 
         assert_eq!(
             game.board.print(BoardPrintStyle::ascii_bordered()),
-            include_str!("../test_data/board_std_moves.txt")
+            include_str!("../../test_data/board_std_moves.txt")
         );
         assert_eq!(
             game.status_message(),
