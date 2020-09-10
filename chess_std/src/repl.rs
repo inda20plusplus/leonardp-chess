@@ -10,12 +10,20 @@ pub struct GameRepl {
 	pub game: Game,
 	// TODO: use read/write trait (eg. to allow tcp stream instead of stdin/out)
 	pub stdout: io::Stdout,
+	history: Vec<Game>,
 }
 
 impl GameRepl {
+	pub fn new(game: Game, stdout: io::Stdout) -> GameRepl {
+		GameRepl {
+			game,
+			stdout,
+			history: vec![],
+		}
+	}
 	pub fn connect<I>(&mut self, lines: I) -> IOResultPlain where I: Iterator<Item = String> {
 		self.print_board()?;
-		writeln!(self.stdout, "Enter moves like 'a2 a3', 'status', or 'exit'.")?;
+		writeln!(self.stdout, "Enter moves like 'a2 a3', 'status', 'undo', or 'exit'.")?;
 		
 		self.prompt()?;
 
@@ -42,9 +50,19 @@ impl GameRepl {
 				writeln!(self.stdout, "{}", self.game.status_message())?;
 				self.prompt()?;
 			},
+			"undo"=> {
+				if let Some(prev) = self.history.pop() {
+					self.game = prev;
+					self.prompt()?;
+				}
+			},
 			_=> {
+				self.history.push(self.game.clone());
 				match self.attempt_move(line) {
-					Err(e)=> self.print_error(&e),
+					Err(e)=> {
+						self.history.pop();
+						self.print_error(&e)
+					},
 					Ok(_)=> self.print_board(),
 				}?;
 				self.prompt()?;

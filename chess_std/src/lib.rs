@@ -8,6 +8,7 @@
 // TODO: use traits for PieceKind instead of enum (+ register)
 // TODO: clean up Some, None, Ok, Err (use directly without ::)
 
+#[derive(Clone)]
 pub struct Game {
     pub board: Board,
     state: State,
@@ -15,17 +16,19 @@ pub struct Game {
     turns: Vec<Turn>,
 }
 
+#[derive(Clone)]
 struct Turn {
     player: PlayerIndex,
     actions: Vec<ActionPackage>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum State {
     Active,
     Ended(StateEnded),
 }
 
+#[derive(Clone)]
 struct Player {
     color: Color,
     captured: Vec<Piece>,
@@ -40,7 +43,7 @@ enum Color {
 // TODO: use refs instead?
 type PlayerIndex = usize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum StateEnded {
     Checkmate {winner: PlayerIndex},
     Resignation {winner: PlayerIndex},
@@ -49,7 +52,7 @@ enum StateEnded {
     Draw(StateEndedDraw),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum StateEndedDraw {
     DrawByAgreement,
     Stalemate,
@@ -61,10 +64,12 @@ enum StateEndedDraw {
 
 type TileRow = Vec<Tile>;
 
+#[derive(Clone)]
 pub struct Board {
     grid: Vec<TileRow>,
 }
 
+#[derive(Clone)]
 struct Tile {
     position: Position,
     piece: Option<Piece>,
@@ -88,13 +93,14 @@ struct Rank {
     n: usize,
 }
 
+#[derive(Clone)]
 struct Piece {
     kind: PieceKind,
     player: PlayerIndex,
     color: Color,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 enum PieceKind {
     King,
     Queen,
@@ -116,7 +122,7 @@ pub struct BoardPrintStyle {
     pub number: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Action {
     PieceMove {
         origin: Position,
@@ -124,7 +130,7 @@ pub enum Action {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ActionPackage {
     pub action: Action,
     pub player: PlayerIndex,

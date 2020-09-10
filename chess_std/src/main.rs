@@ -17,10 +17,7 @@ fn main() -> IOResultPlain {
 
 	let game = Game::new_standard_game();
 
-	let mut repl = GameRepl {
-		game,
-		stdout,
-	};
+	let mut repl = GameRepl::new(game, stdout);
 
 	repl.connect(lines)?;
 
