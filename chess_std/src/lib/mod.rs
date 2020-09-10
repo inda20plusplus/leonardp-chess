@@ -7,6 +7,10 @@
 // TODO: replace all unwrap with correct error handling (send to end user)
 // TODO: use traits for PieceKind instead of enum (+ register)
 // TODO: clean up Some, None, Ok, Err (use directly without ::)
+// TODO: split impl into parts and put where relevant sub-types are introduced (eg. Board.print with PrintStyle?)
+// TODO: Game::to_pgn().to_string() + parse // https://en.wikipedia.org/wiki/Portable_Game_Notation
+//  {turn pair nr}. {white move}{" "+(black move)?}
+//  move: Ng3e6#+=Q // Ng3 (origin: Knight or empty for Pawn, file?, rank?)? e6 (target: file?, rank?) # (if checkmate) + (if check) =Q (if promotion to Queen)
 
 mod color;
 mod pgn;

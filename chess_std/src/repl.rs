@@ -9,6 +9,7 @@ pub struct GameRepl {
     // TODO: use read/write trait (eg. to allow tcp stream instead of stdin/out)
     pub stdout: io::Stdout,
     history: Vec<Game>,
+    pub clear_screen: bool,
 }
 
 impl GameRepl {
@@ -17,6 +18,7 @@ impl GameRepl {
             game,
             stdout,
             history: vec![],
+            clear_screen: false,
         }
     }
     pub fn connect<I>(&mut self, lines: I) -> IOResultPlain
@@ -41,6 +43,9 @@ impl GameRepl {
         Ok(())
     }
     fn print_board(&mut self) -> IOResultPlain {
+        if self.clear_screen {
+            write!(self.stdout, "{esc}[2J{esc}[1;1H", esc = 27 as char)?;
+        }
         writeln!(
             self.stdout,
             "{}",
@@ -61,6 +66,9 @@ impl GameRepl {
             "undo" => {
                 if let Some(prev) = self.history.pop() {
                     self.game = prev;
+                    if self.clear_screen {
+                        self.print_board()?;
+                    }
                     self.prompt()?;
                 }
             }

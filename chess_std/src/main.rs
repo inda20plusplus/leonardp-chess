@@ -17,6 +17,7 @@ fn main() -> IOResultPlain {
     let game = Game::new_standard_game();
 
     let mut repl = GameRepl::new(game, stdout);
+    repl.clear_screen = std::env::args().find(|x| x == "--clear-screen").is_some();
 
     repl.connect(lines)?;
 

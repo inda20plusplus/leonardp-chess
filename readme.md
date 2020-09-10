@@ -9,7 +9,7 @@
 - `cd chess_std`
 - `cargo test`
 - `cargo run`
-- `cargo build --release && ./targets/release/chess_std`
+- `cargo build --release && ./targets/release/chess_std --clear-screen`
 
 ### Contributing
 
