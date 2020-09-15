@@ -11,6 +11,28 @@
 // TODO: Game::to_pgn().to_string() + parse // https://en.wikipedia.org/wiki/Portable_Game_Notation
 //  {turn pair nr}. {white move}{" "+(black move)?}
 //  move: Ng3e6#+=Q // Ng3 (origin: Knight or empty for Pawn, file?, rank?)? e6 (target: file?, rank?) # (if checkmate) + (if check) =Q (if promotion to Queen)
+// TODO: use Display trait + custom formatter flags
+// TODO: terminal interactive mode where pgn interpretation is shown with terminal color (eg. white bold a rank/pieces) + move is tiny animated (show target, show origin, clean)
+// TODO: monte-carlo-chain simple computer-player based on grand-masters pgn playback
+
+// plan:
+// - unit tests for pgn decode (to representation) + encode (back to string) (cases + whole PGN file(s))
+// - implement pgn decode + encode
+// - pgn to game action + game state to pgn
+// - unit test playback + export of pgn + implement
+// - use terminal ui to create king-special + king-movement tests pgn + implement
+//  - check (copy game, move piece, try echo opponent piece to capture king (+ possibly pawn special), check if successful; then try each own piece to do any valid move, checkmate if unavailable)
+//  - castling (king move 2 steps towards rook, rook move to tile between king.origin + king.target; no passing tiles threatened (game.is_tile_threatened(for_player)) + no rook/king moved from game start + empty walk)
+// - require pgn '=Q' syntax for promotion + test + implement
+// - prevent moves if checkmate, prevent non-un-check-ing moves if check, + change game state if check(mate)
+// - integration test to playback gm pgn matches + expect same outcome
+// - refactor to use piece trait
+// - refactor to use board trait
+// - refactor to use action trait + action inverse
+// - history redo/undo + use to correct player_moved_from_original_position
+// - fisher-chess with arbitrary board size
+// - terminal animated pgn playback + upload gif to repo
+
 
 mod color;
 mod pgn;

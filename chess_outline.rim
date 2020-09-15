@@ -165,3 +165,20 @@ wiki:
 			three-player: https://en.wikipedia.org/wiki/Three-player_chess
 
 
+greater plan notes:
+
+	// TODO: rewrite + in english
+	Funderar på att bygga ut chess:et till ett nytt ActionChess:
+	- action/realtime: not turn-based, man kan flytta piecer samtidigt
+	- men för att behålla strategi-aspekten så tar piece:erna tar tid på sig
+	- non-euclidian geometry: möjliggör för arbitrary boards / tile-sammansättningar (där tiles är straight hos spelaren, men kan warpa ut mot kanterna) (kräver att man gör sin egen renderare men low-level graphics apis, tänker WebGPU + vulkan, alt. plain CPU based initially)
+	- arbitrary/infinite board size: (default levels + proceduriellt + muterbar (eg. av spelare potentiellt)) (där fog hindrar playern att se too far from its pieces)
+	- detta möjliggör MASSIVE multiplayer online
+	---
+	Vore kul att publicera det sedan på ett sätt som möjliggör många små matcher, men även en persistant world
+		där man kan börja bygga sitt emperium
+	Tänker dock att när graphics-enginen blir lite bättre så kan man lägga till lite vackrare pieces och biom
+	...och om man ändå har vackrare gubbar och biom, då kan man lika gärna lägga till lite actors (AI + story-based)
+	och om man ändå har non-euclidan geometry, + arbitrary tile connections, då kan man väl lika gärna extenda det till 3D
+	och lägga till lite fler pjäser, och då har man väl något dota2 liknande, blandat med stardew valley, blandat med minecraft, och lite chess, någon stans under ytan
+	(om sedan renderingen + navigeringen är tillräckligt generell, så kan man säga att en tile är en bokstav, en piece är ens cursor, och tile-connections är bland annat hur cursorn kan gå... då har man plötsligt en text editor. Lägg till att varje tile kan ha "sub-tiles", då kan man plötsligt köra arabiska (rtl) i engelska (ltr) i latex (arbitrary layout) i en mindmap (cool layout) i ett fönster (app-layout) i en chess tile (that last part doesn't really make sense), så då kan jag rendera ett symboliskt programmeringsspråk med arbitrary nested embeds/sub-languages med ett uniformt navigerings interface; men det är en senare fråga)
