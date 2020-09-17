@@ -14,6 +14,9 @@
 // TODO: use Display trait + custom formatter flags
 // TODO: terminal interactive mode where pgn interpretation is shown with terminal color (eg. white bold a rank/pieces) + move is tiny animated (show target, show origin, clean)
 // TODO: monte-carlo-chain simple computer-player based on grand-masters pgn playback
+// TODO: define piece-movements use tile paths according to "Parlett's mevement notation" (https://en.wikipedia.org/wiki/Fairy_chess_piece)
+// TODO: implement (https://en.wikipedia.org/wiki/Chess_on_a_really_big_board)
+// TODO: add time (inc. modes, eg. "3|2 event, every move you do adds 2 seconds to your clock")
 
 // plan:
 // - unit tests for pgn decode (to representation) + encode (back to string) (cases + whole PGN file(s))
@@ -39,6 +42,7 @@ mod pgn;
 mod piece;
 mod position;
 mod view;
+mod matcher;
 
 use color::*;
 use pgn::*;
