@@ -63,7 +63,7 @@ impl PieceKind {
         let max_one = i32::abs(dx) <= 1 && i32::abs(dy) <= 1;
 
         let ok = match self {
-            PieceKind::King => any_move && max_one,
+            PieceKind::King => any_move && (is_horizontal || max_one),
             PieceKind::Queen => any_move && (is_diagonal || is_straight),
             PieceKind::Rook => any_move && is_straight,
             PieceKind::Knight => match i32::abs(dy) {

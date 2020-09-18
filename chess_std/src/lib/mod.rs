@@ -363,8 +363,65 @@ impl Game {
                         }
                     }
                     PieceKind::King => {
-                        // TODO
-                        ActionValidation::Standard
+                        let is_castling = i32::abs(dx)>1;
+                        
+                        if is_castling {
+                            // TODO: make dynamic (eg. for different board sizes, etd)
+                            let origin_code = origin_tile.position.to_string_code();
+                            let target_code = target_tile.position.to_string_code();
+
+                            let rook_tile = match (origin_code.as_str(), target_code.as_str()) {
+                                ("E1", "C1")=> self.board.tile_at(Position::from_str("a1").unwrap()),
+                                ("E1", "G1")=> self.board.tile_at(Position::from_str("h1").unwrap()),
+                                ("E8", "C8")=> self.board.tile_at(Position::from_str("a8").unwrap()),
+                                ("E8", "G8")=> self.board.tile_at(Position::from_str("h8").unwrap()),
+                                _ => {
+                                    return Result::Err("invalid castling movement");
+                                }
+                            }.unwrap();
+
+                            let rook = match rook_tile.piece.as_ref() {
+                                Some(a) if a.kind == PieceKind::Rook => a,
+                                _=> {
+                                    return Result::Err("no rook for castling");
+                                }
+                            };
+
+                            let king_moved = self.piece_moved_from_original_position(piece, origin_tile);
+                            let rook_moved = self.piece_moved_from_original_position(rook, rook_tile);
+                            if king_moved || rook_moved {
+                                return Result::Err("castling with moved pieces not allowed");
+                            }
+
+                            
+                            let path_dx = (rook_tile.position.x as i32) - (origin_tile.position.x as i32);
+                            let path_dy = (rook_tile.position.y as i32) - (origin_tile.position.y as i32);
+
+                            // TODO: check if threatened
+                            // check path
+                            let steps = piece.kind.delta_steps(path_dx, path_dy);
+                            let mut pos = origin_tile.position;
+                            for step in steps {
+                                // make step
+                                pos.x = ((pos.x as i32) + step.0) as usize;
+                                pos.y = ((pos.y as i32) + step.1) as usize;
+                                // check
+                                let is_destination_tile = pos == rook_tile.position;
+                                if is_destination_tile {
+                                    break;
+                                }
+                                println!("{}", pos.to_string_code());
+                                let intermediate_tile =
+                                    self.board.tile_at(pos).ok_or("invalid intermediate tile")?;
+                                if intermediate_tile.piece.is_some() {
+                                    return Result::Err("a piece was in the way");
+                                }
+                            }
+                            
+                            ActionValidation::Standard // TODO Castling
+                        } else {
+                            ActionValidation::Standard
+                        }
                     }
                     _ => ActionValidation::Standard,
                 };
