@@ -232,7 +232,30 @@ impl Game {
         if player != self.current_player_index() {
             return Result::Err("out of turn");
         }
-        self.validate_action_inner(action)
+        let action_validation = self.validate_action_inner(action)?;
+        let ap = action;
+        let action = &ap.action;
+
+        match action {
+            Action::PieceMove {
+                origin: _origin,
+                target: _target,
+                kind: _kind,
+            } => {
+                if self.is_check(player) {
+                    let mut game2 = self.clone();
+                    if let Err(_s) = game2.perform_action_inner(ap.clone(), ActionValidation::Standard) {
+                        return Err("inner error");
+                    }
+                    let still_check = game2.is_check(player);
+                    if still_check {
+                        return Err("did not escape check");
+                    }
+                }
+            },
+        }
+
+        Ok(action_validation)
     }
     fn validate_action_inner(&self, action: &ActionPackage) -> Result<ActionValidation, &str> {
         // TODO: ®eturn err message?
@@ -474,6 +497,9 @@ impl Game {
             Ok(inner) => inner,
             Err(e) => return Result::Err(e.to_owned()),
         };
+        self.perform_action_inner(action, action_validaton)
+    }
+    fn perform_action_inner(&mut self, action: ActionPackage, action_validaton: ActionValidation) -> Result<(), String> {
 
         match action.action {
             Action::PieceMove {
@@ -597,14 +623,7 @@ impl Game {
         let opponent_player_index = self.next_opponent_player_index(for_player);
         // let opponent_player = &self.players[opponent_player_index];
 
-        let mut pieces: Vec<(&Tile, &Piece)> = Vec::new();
-        for row in self.board.grid.iter() {
-            for tile in row {
-                if let Some(piece) = &tile.piece {
-                    pieces.push((tile, piece));
-                }
-            }
-        }
+        let pieces = self.get_pieces();
 
         let target_pos = tile.position.clone();
 
@@ -627,8 +646,25 @@ impl Game {
         &self.state
     }
 
-    pub fn is_check(&self, _towards_player: PlayerIndex) -> bool {
-        false
+    fn get_pieces(&self) -> Vec<(&Tile, &Piece)> {
+        // TODO: use iterators
+        let mut pieces: Vec<(&Tile, &Piece)> = Vec::new();
+        for row in self.board.grid.iter() {
+            for tile in row {
+                if let Some(piece) = &tile.piece {
+                    pieces.push((tile, piece));
+                }
+            }
+        }
+        pieces
+    }
+
+    pub fn is_check(&self, towards_player: PlayerIndex) -> bool {
+        let pieces = self.get_pieces();
+        let res = pieces.iter()
+            .find(|x| x.1.player == towards_player && x.1.kind==PieceKind::King).unwrap();
+
+        self.is_tile_threatened(towards_player, &res.0)
     }
 }
 
