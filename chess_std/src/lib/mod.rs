@@ -228,11 +228,15 @@ impl Game {
     }
 
     fn validate_action(&self, action: &ActionPackage) -> Result<ActionValidation, &str> {
-        // TODO: ®eturn err message?
         let player = action.player;
         if player != self.current_player_index() {
             return Result::Err("out of turn");
         }
+        self.validate_action_inner(action)
+    }
+    fn validate_action_inner(&self, action: &ActionPackage) -> Result<ActionValidation, &str> {
+        // TODO: ®eturn err message?
+        let player = action.player;
         let action = &action.action;
 
         match action {
@@ -391,8 +395,8 @@ impl Game {
                                 }
                             };
 
-                            let king_moved = self.piece_moved_from_original_position(piece, origin_tile);
-                            let rook_moved = self.piece_moved_from_original_position(rook, rook_tile);
+                            let king_moved = self.piece_moved_from_original_position(piece);
+                            let rook_moved = self.piece_moved_from_original_position(rook);
                             if king_moved || rook_moved {
                                 return Result::Err("castling with moved pieces not allowed");
                             }
@@ -401,7 +405,6 @@ impl Game {
                             let path_dx = (rook_tile.position.x as i32) - (origin_tile.position.x as i32);
                             let path_dy = (rook_tile.position.y as i32) - (origin_tile.position.y as i32);
 
-                            // TODO: check if threatened
                             // check path
                             let steps = piece.kind.delta_steps(path_dx, path_dy);
                             let mut pos = origin_tile.position;
@@ -414,12 +417,20 @@ impl Game {
                                 if is_destination_tile {
                                     break;
                                 }
-                                println!("{}", pos.to_string_code());
+
                                 let intermediate_tile =
                                     self.board.tile_at(pos).ok_or("invalid intermediate tile")?;
                                 if intermediate_tile.piece.is_some() {
                                     return Result::Err("a piece was in the way");
                                 }
+
+                                if self.is_tile_threatened(player, intermediate_tile) {
+                                    return Result::Err("castling path is threatened");
+                                }
+                            }
+
+                            if self.is_tile_threatened(player, rook_tile) || self.is_tile_threatened(player, origin_tile) {
+                                return Result::Err("castling path is threatened");
                             }
                             
                             ActionValidation::Standard // TODO Castling
@@ -568,7 +579,7 @@ impl Game {
         }
     }
 
-    fn piece_moved_from_original_position(&self, piece: &Piece, tile: &Tile) -> bool {
+    fn piece_moved_from_original_position(&self, piece: &Piece) -> bool {
         // // TODO: simplified, not fully correct implementation
         // //  eg. not actually directly keeping track of whether piece has moved, just using lossy heuristics
         // // TODO: ability to get piece's current tile from piece
@@ -606,7 +617,7 @@ impl Game {
                     target_pos.clone(),
                 ),
             };
-            self.validate_action(&ap)
+            self.validate_action_inner(&ap)
         }).find(|a| a.is_ok());
 
         attacking.is_some()
@@ -786,9 +797,11 @@ impl Piece {
             kind,
             player,
             color: game.players[player].color,
+            moved: false,
         }
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -952,19 +965,19 @@ mod tests {
 
         let rook_tile = &game.board.tile_at(Position::from_str("b1").unwrap()).unwrap().clone();
         let rook = rook_tile.piece.as_ref().unwrap();
-        let moved = game.piece_moved_from_original_position(&rook, rook_tile);
+        let moved = game.piece_moved_from_original_position(&rook);
         assert!(!moved);
         perform_many(&mut game, "b1 b2.h7 h6")?;
         
         let rook_tile = &game.board.tile_at(Position::from_str("b2").unwrap()).unwrap().clone();
         let rook = rook_tile.piece.as_ref().unwrap();
-        let moved = game.piece_moved_from_original_position(&rook, rook_tile);
+        let moved = game.piece_moved_from_original_position(&rook);
         assert!(moved);
         perform_many(&mut game, "b2 b1")?;
         
         let rook_tile = &game.board.tile_at(Position::from_str("b1").unwrap()).unwrap().clone();
         let rook = rook_tile.piece.as_ref().unwrap();
-        let moved = game.piece_moved_from_original_position(&rook, rook_tile);
+        let moved = game.piece_moved_from_original_position(&rook);
         assert!(moved);
 
         Ok(())
@@ -989,7 +1002,7 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
+    #[test]
     fn king_castling() -> Result<(), String> {
         // King: castling (a, h)-side
 
@@ -1034,8 +1047,6 @@ mod tests {
         let mut game = Game::new();
         game.add_pieces_from_str("Kh8 Ph7", game.player_black_index());
         game.add_pieces_from_str("Rh1 Ke1", game.player_white_index());
-        game.perform_action(game.move_from_str("e1 f1")?)
-            .expect_err("h-side white: faulty target");
         castle!(h game).expect("h-side white failed");
 
         let mut game = Game::new();
