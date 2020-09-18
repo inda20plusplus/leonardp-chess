@@ -576,6 +576,10 @@ impl Game {
 
         !is_home
     }
+
+    fn is_tile_threatened(&self, _for_player: PlayerIndex, _tile: &Tile) -> bool {
+        false
+    }
 }
 
 impl Player {
@@ -902,6 +906,45 @@ mod tests {
     }
 
     #[test]
+    fn piece_has_moved() -> Result<(), String> {
+        let mut game = Game::new();
+        game.add_pieces_from_str("Kh8 Ph7", game.player_black_index());
+        game.add_pieces_from_str("Ka1 Pa2 Rb1", game.player_white_index());
+
+        let rook_tile = &game.board.tile_at(Position::from_str("b1").unwrap()).unwrap().clone();
+        let rook = rook_tile.piece.as_ref().unwrap();
+        let moved = game.piece_moved_from_original_position(&rook, rook_tile);
+        assert!(!moved);
+        perform_many(&mut game, "b1 b2.h7 h6")?;
+        let moved = game.piece_moved_from_original_position(&rook, rook_tile);
+        assert!(moved);
+        perform_many(&mut game, "b2 b1")?;
+        let moved = game.piece_moved_from_original_position(&rook, rook_tile);
+        assert!(moved);
+
+        Ok(())
+    }
+
+    #[test]
+    fn tile_under_attack() -> Result<(), String> {
+        // TODO: test for en_passant threat?
+
+        let mut game = Game::new();
+        game.add_pieces_from_str("Kh8 Ph7", game.player_black_index());
+        game.add_pieces_from_str("Ka1 Pa2 Rb1", game.player_white_index());
+
+        let b8 = game.board.tile_at(Position::from_str("b8").unwrap()).unwrap();
+        let c8 = game.board.tile_at(Position::from_str("c8").unwrap()).unwrap();
+
+        assert_eq!(game.is_tile_threatened(game.player_white_index(), b8), false);
+        assert_eq!(game.is_tile_threatened(game.player_white_index(), c8), false);
+        assert_eq!(game.is_tile_threatened(game.player_black_index(), b8), true);
+        assert_eq!(game.is_tile_threatened(game.player_black_index(), c8), false);
+
+        Ok(())
+    }
+
+    // #[test]
     fn king_castling() -> Result<(), String> {
         // King: castling (a, h)-side
 
