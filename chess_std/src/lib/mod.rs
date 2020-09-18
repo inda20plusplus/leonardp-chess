@@ -244,7 +244,9 @@ impl Game {
             } => {
                 if self.is_check(player) {
                     let mut game2 = self.clone();
-                    if let Err(_s) = game2.perform_action_inner(ap.clone(), ActionValidation::Standard) {
+                    if let Err(_s) =
+                        game2.perform_action_inner(ap.clone(), ActionValidation::Standard)
+                    {
                         return Err("inner error");
                     }
                     let still_check = game2.is_check(player);
@@ -252,7 +254,7 @@ impl Game {
                         return Err("did not escape check");
                     }
                 }
-            },
+            }
         }
 
         Ok(action_validation)
@@ -394,26 +396,35 @@ impl Game {
                         }
                     }
                     PieceKind::King => {
-                        let is_castling = i32::abs(dx)>1;
-                        
+                        let is_castling = i32::abs(dx) > 1;
+
                         if is_castling {
                             // TODO: make dynamic (eg. for different board sizes, etd)
                             let origin_code = origin_tile.position.to_string_code();
                             let target_code = target_tile.position.to_string_code();
 
                             let rook_tile = match (origin_code.as_str(), target_code.as_str()) {
-                                ("E1", "C1")=> self.board.tile_at(Position::from_str("a1").unwrap()),
-                                ("E1", "G1")=> self.board.tile_at(Position::from_str("h1").unwrap()),
-                                ("E8", "C8")=> self.board.tile_at(Position::from_str("a8").unwrap()),
-                                ("E8", "G8")=> self.board.tile_at(Position::from_str("h8").unwrap()),
+                                ("E1", "C1") => {
+                                    self.board.tile_at(Position::from_str("a1").unwrap())
+                                }
+                                ("E1", "G1") => {
+                                    self.board.tile_at(Position::from_str("h1").unwrap())
+                                }
+                                ("E8", "C8") => {
+                                    self.board.tile_at(Position::from_str("a8").unwrap())
+                                }
+                                ("E8", "G8") => {
+                                    self.board.tile_at(Position::from_str("h8").unwrap())
+                                }
                                 _ => {
                                     return Result::Err("invalid castling movement");
                                 }
-                            }.unwrap();
+                            }
+                            .unwrap();
 
                             let rook = match rook_tile.piece.as_ref() {
                                 Some(a) if a.kind == PieceKind::Rook => a,
-                                _=> {
+                                _ => {
                                     return Result::Err("no rook for castling");
                                 }
                             };
@@ -424,9 +435,10 @@ impl Game {
                                 return Result::Err("castling with moved pieces not allowed");
                             }
 
-                            
-                            let path_dx = (rook_tile.position.x as i32) - (origin_tile.position.x as i32);
-                            let path_dy = (rook_tile.position.y as i32) - (origin_tile.position.y as i32);
+                            let path_dx =
+                                (rook_tile.position.x as i32) - (origin_tile.position.x as i32);
+                            let path_dy =
+                                (rook_tile.position.y as i32) - (origin_tile.position.y as i32);
 
                             // check path
                             let steps = piece.kind.delta_steps(path_dx, path_dy);
@@ -452,10 +464,12 @@ impl Game {
                                 }
                             }
 
-                            if self.is_tile_threatened(player, rook_tile) || self.is_tile_threatened(player, origin_tile) {
+                            if self.is_tile_threatened(player, rook_tile)
+                                || self.is_tile_threatened(player, origin_tile)
+                            {
                                 return Result::Err("castling path is threatened");
                             }
-                            
+
                             ActionValidation::Standard // TODO Castling
                         } else {
                             ActionValidation::Standard
@@ -499,8 +513,11 @@ impl Game {
         };
         self.perform_action_inner(action, action_validaton)
     }
-    fn perform_action_inner(&mut self, action: ActionPackage, action_validaton: ActionValidation) -> Result<(), String> {
-
+    fn perform_action_inner(
+        &mut self,
+        action: ActionPackage,
+        action_validaton: ActionValidation,
+    ) -> Result<(), String> {
         match action.action {
             Action::PieceMove {
                 origin,
@@ -556,7 +573,7 @@ impl Game {
                     self.state = State::Ended(state);
                     self.turns.pop();
                 }
-                
+
                 Result::Ok(())
             }
         }
@@ -630,19 +647,20 @@ impl Game {
 
         let pieces = self.get_pieces();
 
-        let target_pos = tile.position.clone();
+        let target_pos = tile.position;
 
-        let pieces = pieces.iter().filter(|x| x.1.player == opponent_player_index);
-        let attacking = pieces.map(|x| {
-            let ap = ActionPackage {
-                player: opponent_player_index,
-                action: Action::piece_move(
-                    x.0.position.clone(),
-                    target_pos.clone(),
-                ),
-            };
-            self.validate_action_inner(&ap)
-        }).find(|a| a.is_ok());
+        let pieces = pieces
+            .iter()
+            .filter(|x| x.1.player == opponent_player_index);
+        let attacking = pieces
+            .map(|x| {
+                let ap = ActionPackage {
+                    player: opponent_player_index,
+                    action: Action::piece_move(x.0.position, target_pos),
+                };
+                self.validate_action_inner(&ap)
+            })
+            .find(|a| a.is_ok());
 
         attacking.is_some()
     }
@@ -677,8 +695,10 @@ impl Game {
 
     pub fn is_check(&self, towards_player: PlayerIndex) -> bool {
         let pieces = self.get_pieces();
-        let res = pieces.iter()
-            .find(|x| x.1.player == towards_player && x.1.kind==PieceKind::King).unwrap();
+        let res = pieces
+            .iter()
+            .find(|x| x.1.player == towards_player && x.1.kind == PieceKind::King)
+            .unwrap();
 
         self.is_tile_threatened(towards_player, &res.0)
     }
@@ -696,42 +716,48 @@ impl Game {
         // (simple optimisation: 1. start with king; 2. only use piece kind movements; 3. only check towards path of fire)
 
         let tiles = self.get_tiles();
-        let non_checking_action = self.get_pieces().iter()
-            .filter(|(_, piece)| piece.player==current)
+        let non_checking_action = self
+            .get_pieces()
+            .iter()
+            .filter(|(_, piece)| piece.player == current)
             .map(|(tile, _piece)| {
-                tiles.iter().map(move |other| {
+                tiles
+                    .iter()
+                    .map(move |other| {
+                        // TODO: doesn't handle castling + promotion
 
-                    // TODO: doesn't handle castling + promotion
+                        let action =
+                            Action::piece_move(tile.position.clone(), other.position.clone());
+                        let ap = ActionPackage {
+                            player: current,
+                            action: action.clone(),
+                        };
 
-                    let action = Action::piece_move(
-                        tile.position.clone(),
-                        other.position.clone(),
-                    );
-                    let ap = ActionPackage {
-                        player: current,
-                        action: action.clone(),
-                    };
+                        let mut game2 = self.clone();
+                        let attempt = game2.perform_action(ap);
+                        if attempt.is_err() {
+                            return None;
+                        }
 
-                    let mut game2 = self.clone();
-                    let attempt = game2.perform_action(ap);
-                    if !attempt.is_ok() {
-                        return None
-                    }
-                    
-                    if game2.is_check(current) {
-                        None
-                    } else {
-                        Some(action)
-                    }
-                }).filter(|a| a.is_some())
-            }).flatten().next();
+                        if game2.is_check(current) {
+                            None
+                        } else {
+                            Some(action)
+                        }
+                    })
+                    .filter(|a| a.is_some())
+            })
+            .flatten()
+            .next();
 
         let non_checking_action_exits = non_checking_action.is_some();
 
         if non_checking_action_exits {
             None
         } else {
-            Some(StateEnded::Checkmate {winner: opponent_player_index})
+            Some(StateEnded::Checkmate {
+                winner: opponent_player_index,
+            })
         }
     }
 }
@@ -906,7 +932,6 @@ impl Piece {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1067,19 +1092,31 @@ mod tests {
         game.add_pieces_from_str("Kh8 Ph7", game.player_black_index());
         game.add_pieces_from_str("Ka1 Pa2 Rb1", game.player_white_index());
 
-        let rook_tile = &game.board.tile_at(Position::from_str("b1").unwrap()).unwrap().clone();
+        let rook_tile = &game
+            .board
+            .tile_at(Position::from_str("b1").unwrap())
+            .unwrap()
+            .clone();
         let rook = rook_tile.piece.as_ref().unwrap();
         let moved = game.piece_moved_from_original_position(&rook);
         assert!(!moved);
         perform_many(&mut game, "b1 b2.h7 h6")?;
-        
-        let rook_tile = &game.board.tile_at(Position::from_str("b2").unwrap()).unwrap().clone();
+
+        let rook_tile = &game
+            .board
+            .tile_at(Position::from_str("b2").unwrap())
+            .unwrap()
+            .clone();
         let rook = rook_tile.piece.as_ref().unwrap();
         let moved = game.piece_moved_from_original_position(&rook);
         assert!(moved);
         perform_many(&mut game, "b2 b1")?;
-        
-        let rook_tile = &game.board.tile_at(Position::from_str("b1").unwrap()).unwrap().clone();
+
+        let rook_tile = &game
+            .board
+            .tile_at(Position::from_str("b1").unwrap())
+            .unwrap()
+            .clone();
         let rook = rook_tile.piece.as_ref().unwrap();
         let moved = game.piece_moved_from_original_position(&rook);
         assert!(moved);
@@ -1095,13 +1132,28 @@ mod tests {
         game.add_pieces_from_str("Kh8 Ph7", game.player_black_index());
         game.add_pieces_from_str("Ka1 Pa2 Rb1", game.player_white_index());
 
-        let b8 = game.board.tile_at(Position::from_str("b8").unwrap()).unwrap();
-        let c8 = game.board.tile_at(Position::from_str("c8").unwrap()).unwrap();
+        let b8 = game
+            .board
+            .tile_at(Position::from_str("b8").unwrap())
+            .unwrap();
+        let c8 = game
+            .board
+            .tile_at(Position::from_str("c8").unwrap())
+            .unwrap();
 
-        assert_eq!(game.is_tile_threatened(game.player_white_index(), b8), false);
-        assert_eq!(game.is_tile_threatened(game.player_white_index(), c8), false);
+        assert_eq!(
+            game.is_tile_threatened(game.player_white_index(), b8),
+            false
+        );
+        assert_eq!(
+            game.is_tile_threatened(game.player_white_index(), c8),
+            false
+        );
         assert_eq!(game.is_tile_threatened(game.player_black_index(), b8), true);
-        assert_eq!(game.is_tile_threatened(game.player_black_index(), c8), false);
+        assert_eq!(
+            game.is_tile_threatened(game.player_black_index(), c8),
+            false
+        );
 
         Ok(())
     }
@@ -1183,7 +1235,7 @@ mod tests {
         assert_eq!(game.is_check(game.player_black_index()), false);
         perform_many(&mut game, "b7 g7")?;
         assert_eq!(game.is_check(game.player_black_index()), true);
-        
+
         let mut game2 = game.clone();
         perform_many(&mut game2, "h7 g7")?; // king capturing checking piece
         assert_eq!(game2.is_check(game2.player_black_index()), false);
@@ -1193,7 +1245,12 @@ mod tests {
         assert_eq!(game.get_state().clone(), State::Active);
         perform_many(&mut game, "g7 f7.g3 g2.c4 c8")?;
         assert_eq!(game.is_check(game.player_black_index()), true);
-        assert_eq!(game.get_state().clone(), State::Ended(StateEnded::Checkmate { winner: game.player_white_index() }));
+        assert_eq!(
+            game.get_state().clone(),
+            State::Ended(StateEnded::Checkmate {
+                winner: game.player_white_index()
+            })
+        );
 
         perform_many(&mut game, "g3 g2").expect_err("not allowed to move after checkmate");
 
