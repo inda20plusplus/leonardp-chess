@@ -37,13 +37,12 @@
 // - fisher-chess with arbitrary board size
 // - terminal animated pgn playback + upload gif to repo
 
-
 mod color;
+mod matcher;
 mod pgn;
 mod piece;
 mod position;
 mod view;
-mod matcher;
 
 use color::*;
 use pgn::*;
@@ -122,7 +121,11 @@ struct Piece {
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    PieceMove { origin: Position, target: Position, kind: ActionPieceMoveKind },
+    PieceMove {
+        origin: Position,
+        target: Position,
+        kind: ActionPieceMoveKind,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -183,7 +186,13 @@ impl Game {
     fn add_piece(&mut self, player: PlayerIndex, position: Position, kind: PieceKind) {
         let piece = Piece::new(kind, player, self);
         let tile = &mut self.board.grid[position.y][position.x];
-        assert!(tile.piece.is_none(), format!("cannot add piece to tile with existing piece at {}", tile.position.to_string_code()));
+        assert!(
+            tile.piece.is_none(),
+            format!(
+                "cannot add piece to tile with existing piece at {}",
+                tile.position.to_string_code()
+            )
+        );
         tile.piece = Option::Some(piece);
     }
     pub fn add_pieces_from_str(&mut self, source: &str, player: PlayerIndex) {
@@ -219,7 +228,11 @@ impl Game {
         let action = &action.action;
 
         match action {
-            Action::PieceMove { origin, target, kind } => {
+            Action::PieceMove {
+                origin,
+                target,
+                kind,
+            } => {
                 let origin_tile = self.board.tile_at(*origin).ok_or("invalid origin tile")?;
                 let piece = origin_tile.piece.as_ref().ok_or("no piece at origin")?;
                 let target_tile = self.board.tile_at(*target).ok_or("invalid target tile")?;
@@ -269,34 +282,43 @@ impl Game {
                             return Result::Err("pawn cannot move that far");
                         }
 
-                        let opponent_player = if player_index+1>=self.players.len() {0} else {player_index+1};
+                        let opponent_player = if player_index + 1 >= self.players.len() {
+                            0
+                        } else {
+                            player_index + 1
+                        };
                         let opponent_player = &self.players[opponent_player];
-                        let is_at_promotion_row = target.y as i32 == opponent_player.home_row(&self.board);
+                        let is_at_promotion_row =
+                            target.y as i32 == opponent_player.home_row(&self.board);
 
                         match kind {
                             ActionPieceMoveKind::Promotion { piece_kind } => {
-                                
                                 if !is_at_promotion_row {
-                                    return Result::Err("pawn can only promote to opponents home row");
+                                    return Result::Err(
+                                        "pawn can only promote to opponents home row",
+                                    );
                                 }
 
                                 if dx != 0 {
                                     return Result::Err("no en_passant + promotion combo");
                                 }
-                                
-                                ActionValidation::Promotion { piece_kind: piece_kind.clone() }
-                            },
+
+                                ActionValidation::Promotion {
+                                    piece_kind: piece_kind.clone(),
+                                }
+                            }
                             ActionPieceMoveKind::Standard => {
                                 if is_at_promotion_row {
                                     return Result::Err("pawn promotion need to be specified");
                                 }
 
-                                let attempted_en_passant = i32::abs(dx) == 1 && target_tile.piece.is_none();
+                                let attempted_en_passant =
+                                    i32::abs(dx) == 1 && target_tile.piece.is_none();
                                 if !attempted_en_passant {
                                     ActionValidation::Standard
                                 } else {
                                     let prev_turn = self.turns.get(self.turns.len() - 2);
-        
+
                                     let prev_turn = match prev_turn {
                                         Option::Some(prev_turn) => prev_turn,
                                         _ => {
@@ -305,12 +327,16 @@ impl Game {
                                             );
                                         }
                                     };
-        
+
                                     let just_moved_past = prev_turn
                                         .actions
                                         .iter()
                                         .scan(0, |_, action| match action.action {
-                                            Action::PieceMove { origin: _, target, kind: _ } => Some(target),
+                                            Action::PieceMove {
+                                                origin: _,
+                                                target,
+                                                kind: _,
+                                            } => Some(target),
                                         })
                                         .find(|action_target_pos| {
                                             let pos = action_target_pos;
@@ -319,7 +345,7 @@ impl Game {
                                                 == (target_tile.position.y as i32) - dy_forward;
                                             same_file && rank_before
                                         });
-        
+
                                     let capture_tile_pos = match just_moved_past {
                                         Some(inner) => inner,
                                         None => {
@@ -328,14 +354,13 @@ impl Game {
                                             );
                                         }
                                     };
-        
+
                                     ActionValidation::EnPassant {
                                         capture_tile: capture_tile_pos,
                                     }
                                 }
-                            },
+                            }
                         }
-
                     }
                     PieceKind::King => {
                         // TODO
@@ -366,7 +391,7 @@ impl Game {
                 }
 
                 Ok(action_validation)
-            },
+            }
         }
     }
 
@@ -379,7 +404,11 @@ impl Game {
         };
 
         match action.action {
-            Action::PieceMove { origin, target, kind: _ } => {
+            Action::PieceMove {
+                origin,
+                target,
+                kind: _,
+            } => {
                 let player_index = self.current_player_index();
                 let player = &mut self.players[player_index];
 
@@ -401,14 +430,14 @@ impl Game {
                         let capture_tile = self.board.tile_at_mut(capture_tile).unwrap();
                         let captured = capture_tile.piece.take().unwrap();
                         player.captured.push(captured);
-                    },
+                    }
                     ActionValidation::Promotion { piece_kind } => {
                         let new_piece = Piece::new(piece_kind, player_index, &self);
                         let _replaced_piece = {
                             let target_tile = self.board.tile_at_mut(target).unwrap();
                             target_tile.piece.replace(new_piece)
                         };
-                    },
+                    }
                 };
 
                 let current_turn = self.turns.last_mut().unwrap();
@@ -431,7 +460,7 @@ impl Game {
 
     pub fn move_from_str(&self, source: &str) -> Result<ActionPackage, String> {
         let components: Vec<&str> = source.split_ascii_whitespace().collect();
-        
+
         let ap = ActionPackage {
             player: self.current_player_index(),
             action: match components.len() {
@@ -439,16 +468,19 @@ impl Game {
                     Position::from_str(&components[0]).ok_or("invalid origin")?,
                     Position::from_str(&components[1]).ok_or("invalid target")?,
                 ),
-                4 if components[2]=="promote" => Action::PieceMove {
+                4 if components[2] == "promote" => Action::PieceMove {
                     origin: Position::from_str(&components[0]).ok_or("invalid origin")?,
                     target: Position::from_str(&components[1]).ok_or("invalid target")?,
                     kind: ActionPieceMoveKind::Promotion {
-                        piece_kind: PieceKind::from_str(&components[3]).ok_or("invalid promotion piece")?,
+                        piece_kind: PieceKind::from_str(&components[3])
+                            .ok_or("invalid promotion piece")?,
                     },
                 },
                 _ => {
-                    return Result::Err("expected format like 'a6 b8' or 'a7 a8 promote Q'".to_owned());
-                },
+                    return Result::Err(
+                        "expected format like 'a6 b8' or 'a7 a8 promote Q'".to_owned(),
+                    );
+                }
             },
         };
         Result::Ok(ap)
@@ -520,7 +552,7 @@ impl Player {
 }
 
 impl Action {
-    fn piece_move (origin: Position, target: Position) -> Action {
+    fn piece_move(origin: Position, target: Position) -> Action {
         Action::PieceMove {
             origin,
             target,
@@ -821,21 +853,29 @@ mod tests {
         game.add_pieces_from_str("Ra1 Pb1 Ke1 Pe2", game.player_white_index());
 
         macro_rules! castle {
-            (a $game:expr) => (perform_many(&mut $game, "e1 c1"));
-            (h $game:expr) => (perform_many(&mut $game, "e1 g1"));
-            (a_black $game:expr) => (perform_many(&mut $game, "e8 c8"));
-            (h_black $game:expr) => (perform_many(&mut $game, "e8 g8"));
+            (a $game:expr) => {
+                perform_many(&mut $game, "e1 c1")
+            };
+            (h $game:expr) => {
+                perform_many(&mut $game, "e1 g1")
+            };
+            (a_black $game:expr) => {
+                perform_many(&mut $game, "e8 c8")
+            };
+            (h_black $game:expr) => {
+                perform_many(&mut $game, "e8 g8")
+            };
         };
 
         castle!(a game).expect_err("a-side white: piece in the way");
         perform_many(&mut game, "e2 e3.b3 c3.b1 b2.h7 h6")?;
-        
+
         castle!(a game).expect_err("a-side white: path under attack");
         perform_many(&mut game, "e3 e4.c3 b3")?;
-        
+
         game.perform_action(game.move_from_str("e1 b1")?)
             .expect_err("a-side white: faulty target");
-        
+
         let mut game2 = game.clone();
         perform_many(&mut game2, "a1 b1.h6 h5.b1 a1.h5 h4")?; // move the rook, then move it back
         castle!(a game2).expect_err("a-side white: rook has been moved");
@@ -845,7 +885,6 @@ mod tests {
         castle!(a game2).expect_err("a-side white: king has been moved");
 
         castle!(a game).expect("a-side white failed");
-
 
         let mut game = Game::new();
         game.add_pieces_from_str("Kh8 Ph7", game.player_black_index());
@@ -859,7 +898,7 @@ mod tests {
         game.add_pieces_from_str("Pe2 Ke1 Pf1", game.player_white_index());
         perform_many(&mut game, "f1 f2")?;
         let mut game2 = game.clone();
-        
+
         castle!(a_black game).expect("a-side black failed");
         castle!(h_black game2).expect("h-side black failed");
 
