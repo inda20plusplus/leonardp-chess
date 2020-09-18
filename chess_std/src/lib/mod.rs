@@ -763,7 +763,9 @@ impl Game {
             })
             .flatten()
             .next();
-
+        
+        // TODO: should not be possible to check opponent while remaining in check
+        // println!("nn {:?}", non_checking_action);
         let non_checking_action_exits = non_checking_action.is_some();
 
         if non_checking_action_exits {
@@ -1234,7 +1236,8 @@ mod tests {
     #[test]
     fn check_n_mate() -> Result<(), String> {
         // TODO: stalemate
-        // TODO: not allowed to move into check
+        // TODO: not allowed to move into check (done, not tested)
+        // TODO: should not be possible to check opponent while remaining in check
 
         let mut game = Game::new();
         game.add_pieces_from_str("Kh7 Pg8 Pg3", game.player_black_index());
