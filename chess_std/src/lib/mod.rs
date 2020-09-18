@@ -117,6 +117,7 @@ struct Piece {
     kind: PieceKind,
     player: PlayerIndex,
     color: Color,
+    moved: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -469,10 +470,11 @@ impl Game {
                 let player_index = self.current_player_index();
                 let player = &mut self.players[player_index];
 
-                let piece = {
+                let mut piece = {
                     let origin_tile = self.board.tile_at_mut(origin).unwrap();
                     origin_tile.piece.take().unwrap()
                 };
+                piece.moved = true;
                 let captured = {
                     let target_tile = self.board.tile_at_mut(target).unwrap();
                     target_tile.piece.replace(piece)
@@ -564,17 +566,17 @@ impl Game {
     }
 
     fn piece_moved_from_original_position(&self, piece: &Piece, tile: &Tile) -> bool {
-        // TODO: simplified, not fully correct implementation
-        //  eg. not actually directly keeping track of whether piece has moved, just using lossy heuristics
-        // TODO: ability to get piece's current tile from piece
+        // // TODO: simplified, not fully correct implementation
+        // //  eg. not actually directly keeping track of whether piece has moved, just using lossy heuristics
+        // // TODO: ability to get piece's current tile from piece
+        // let player = &self.players[piece.player];
+        // let is_home = match piece.kind {
+        //     PieceKind::Pawn => player.is_pawn_home(&self.board, tile.position),
+        //     _ => player.home_row(&self.board) == (tile.position.y as i32),
+        // };
+        // !is_home
 
-        let player = &self.players[piece.player];
-        let is_home = match piece.kind {
-            PieceKind::Pawn => player.is_pawn_home(&self.board, tile.position),
-            _ => player.home_row(&self.board) == (tile.position.y as i32),
-        };
-
-        !is_home
+        piece.moved
     }
 
     fn is_tile_threatened(&self, _for_player: PlayerIndex, _tile: &Tile) -> bool {
@@ -924,9 +926,15 @@ mod tests {
         let moved = game.piece_moved_from_original_position(&rook, rook_tile);
         assert!(!moved);
         perform_many(&mut game, "b1 b2.h7 h6")?;
+        
+        let rook_tile = &game.board.tile_at(Position::from_str("b2").unwrap()).unwrap().clone();
+        let rook = rook_tile.piece.as_ref().unwrap();
         let moved = game.piece_moved_from_original_position(&rook, rook_tile);
         assert!(moved);
         perform_many(&mut game, "b2 b1")?;
+        
+        let rook_tile = &game.board.tile_at(Position::from_str("b1").unwrap()).unwrap().clone();
+        let rook = rook_tile.piece.as_ref().unwrap();
         let moved = game.piece_moved_from_original_position(&rook, rook_tile);
         assert!(moved);
 
