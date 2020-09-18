@@ -219,6 +219,13 @@ impl Game {
     pub fn current_player_title(&self) -> String {
         format!("{:?}", self.current_player().color)
     }
+    fn next_opponent_player_index(&self, player_index: PlayerIndex) -> PlayerIndex {
+        if player_index + 1 >= self.players.len() {
+            0
+        } else {
+            player_index + 1
+        }
+    }
 
     fn validate_action(&self, action: &ActionPackage) -> Result<ActionValidation, &str> {
         // TODO: ®eturn err message?
@@ -283,11 +290,7 @@ impl Game {
                             return Result::Err("pawn cannot move that far");
                         }
 
-                        let opponent_player = if player_index + 1 >= self.players.len() {
-                            0
-                        } else {
-                            player_index + 1
-                        };
+                        let opponent_player = self.next_opponent_player_index(player_index);
                         let opponent_player = &self.players[opponent_player];
                         let is_at_promotion_row =
                             target.y as i32 == opponent_player.home_row(&self.board);
@@ -579,8 +582,34 @@ impl Game {
         piece.moved
     }
 
-    fn is_tile_threatened(&self, _for_player: PlayerIndex, _tile: &Tile) -> bool {
-        false
+    fn is_tile_threatened(&self, for_player: PlayerIndex, tile: &Tile) -> bool {
+        let opponent_player_index = self.next_opponent_player_index(for_player);
+        // let opponent_player = &self.players[opponent_player_index];
+
+        let mut pieces: Vec<(&Tile, &Piece)> = Vec::new();
+        for row in self.board.grid.iter() {
+            for tile in row {
+                if let Some(piece) = &tile.piece {
+                    pieces.push((tile, piece));
+                }
+            }
+        }
+
+        let target_pos = tile.position.clone();
+
+        let pieces = pieces.iter().filter(|x| x.1.player == opponent_player_index);
+        let attacking = pieces.map(|x| {
+            let ap = ActionPackage {
+                player: opponent_player_index,
+                action: Action::piece_move(
+                    x.0.position.clone(),
+                    target_pos.clone(),
+                ),
+            };
+            self.validate_action(&ap)
+        }).find(|a| a.is_ok());
+
+        attacking.is_some()
     }
 
     pub fn get_state(&self) -> &State {
