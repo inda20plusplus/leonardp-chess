@@ -269,17 +269,28 @@ impl Game {
                             return Result::Err("pawn cannot move that far");
                         }
 
+                        let opponent_player = if player_index+1>=self.players.len() {0} else {player_index+1};
+                        let opponent_player = &self.players[opponent_player];
+                        let is_at_promotion_row = target.y as i32 == opponent_player.home_row(&self.board);
+
                         match kind {
                             ActionPieceMoveKind::Promotion { piece_kind } => {
-                                let opponent_player = if player_index+1>=self.players.len() {0} else {player_index+1};
-                                let opponent_player = &self.players[opponent_player];
-
-                                if target.y as i32 != opponent_player.home_row(&self.board) {
+                                
+                                if !is_at_promotion_row {
                                     return Result::Err("pawn can only promote to opponents home row");
                                 }
+
+                                if dx != 0 {
+                                    return Result::Err("no en_passant + promotion combo");
+                                }
+                                
                                 ActionValidation::Promotion { piece_kind: piece_kind.clone() }
                             },
                             ActionPieceMoveKind::Standard => {
+                                if is_at_promotion_row {
+                                    return Result::Err("pawn promotion need to be specified");
+                                }
+
                                 let attempted_en_passant = i32::abs(dx) == 1 && target_tile.piece.is_none();
                                 if !attempted_en_passant {
                                     ActionValidation::Standard
@@ -369,7 +380,8 @@ impl Game {
 
         match action.action {
             Action::PieceMove { origin, target, kind: _ } => {
-                let player = &mut self.players[self.current_player_index()];
+                let player_index = self.current_player_index();
+                let player = &mut self.players[player_index];
 
                 let piece = {
                     let origin_tile = self.board.tile_at_mut(origin).unwrap();
@@ -389,10 +401,14 @@ impl Game {
                         let capture_tile = self.board.tile_at_mut(capture_tile).unwrap();
                         let captured = capture_tile.piece.take().unwrap();
                         player.captured.push(captured);
-                    }
+                    },
                     ActionValidation::Promotion { piece_kind } => {
-                        unimplemented!();
-                    }
+                        let new_piece = Piece::new(piece_kind, player_index, &self);
+                        let _replaced_piece = {
+                            let target_tile = self.board.tile_at_mut(target).unwrap();
+                            target_tile.piece.replace(new_piece)
+                        };
+                    },
                 };
 
                 let current_turn = self.turns.last_mut().unwrap();
