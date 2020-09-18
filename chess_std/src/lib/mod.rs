@@ -1220,6 +1220,7 @@ mod tests {
     #[test]
     fn check_n_mate() -> Result<(), String> {
         // TODO: stalemate
+        // TODO: not allowed to move into check
 
         let mut game = Game::new();
         game.add_pieces_from_str("Kh7 Pg8 Pg3", game.player_black_index());

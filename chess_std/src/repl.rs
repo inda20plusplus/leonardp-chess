@@ -70,6 +70,8 @@ impl GameRepl {
                         self.print_board()?;
                     }
                     self.prompt()?;
+                } else {
+                    self.print_error("nothing more to undo")?;
                 }
             }
             _ => {
@@ -91,7 +93,18 @@ impl GameRepl {
         self.game.perform_action(action)
     }
     fn prompt(&mut self) -> IOResultPlain {
-        write!(self.stdout, "{}> ", self.game.current_player_title())?;
+        match self.game.get_state() {
+            State::Active=> {
+                if self.game.is_check(self.game.current_player_index()) {
+                    write!(self.stdout, "{} (checked)> ", self.game.current_player_title())?;
+                } else {
+                    write!(self.stdout, "{}> ", self.game.current_player_title())?;
+                }
+            },
+            State::Ended(endstate)=> {
+                write!(self.stdout, "{:?}> ", endstate)?;
+            },
+        }
         self.stdout.flush()
     }
     fn print_error(&mut self, err: &str) -> IOResultPlain {
