@@ -19,6 +19,7 @@
 // TODO: add time (inc. modes, eg. "3|2 event, every move you do adds 2 seconds to your clock")
 
 // plan:
+// - mvp of assignment: promotion, castling (inc. tile threatened), test king movement, check, checkmate, stalemate (available moves)
 // - unit tests for pgn decode (to representation) + encode (back to string) (cases + whole PGN file(s))
 // - implement pgn decode + encode
 // - pgn to game action + game state to pgn
@@ -121,7 +122,13 @@ struct Piece {
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    PieceMove { origin: Position, target: Position },
+    PieceMove { origin: Position, target: Position, kind: ActionPieceMoveKind },
+}
+
+#[derive(Debug, Clone)]
+pub enum ActionPieceMoveKind {
+    Standard,
+    Promotion { piece_kind: PieceKind },
 }
 
 #[derive(Debug, Clone)]
@@ -134,7 +141,7 @@ pub struct ActionPackage {
 enum ActionValidation {
     Standard,
     EnPassant { capture_tile: Position },
-    Promotion,
+    Promotion { piece_kind: PieceKind },
 }
 
 impl Game {
@@ -212,7 +219,7 @@ impl Game {
         let action = &action.action;
 
         match action {
-            Action::PieceMove { origin, target } => {
+            Action::PieceMove { origin, target, kind } => {
                 let origin_tile = self.board.tile_at(*origin).ok_or("invalid origin tile")?;
                 let piece = origin_tile.piece.as_ref().ok_or("no piece at origin")?;
                 let target_tile = self.board.tile_at(*target).ok_or("invalid target tile")?;
@@ -238,6 +245,7 @@ impl Game {
                 // TODO: move PieceKind specific code to PieceKind
                 let action_validation = match piece.kind {
                     PieceKind::Pawn => {
+                        let player_index = player;
                         let player = &self.players[player];
                         let dy_forward = player.dy_forward();
                         let dy_forward_dir = dy_forward < 0;
@@ -261,48 +269,62 @@ impl Game {
                             return Result::Err("pawn cannot move that far");
                         }
 
-                        let attempted_en_passant = i32::abs(dx) == 1 && target_tile.piece.is_none();
-                        if !attempted_en_passant {
-                            ActionValidation::Standard
-                        } else {
-                            let prev_turn = self.turns.get(self.turns.len() - 2);
+                        match kind {
+                            ActionPieceMoveKind::Promotion { piece_kind } => {
+                                let opponent_player = if player_index+1>=self.players.len() {0} else {player_index+1};
+                                let opponent_player = &self.players[opponent_player];
 
-                            let prev_turn = match prev_turn {
-                                Option::Some(prev_turn) => prev_turn,
-                                _ => {
-                                    return Result::Err(
-                                        "en_passant only available after another move",
-                                    );
+                                if target.y as i32 != opponent_player.home_row(&self.board) {
+                                    return Result::Err("pawn can only promote to opponents home row");
                                 }
-                            };
-
-                            let just_moved_past = prev_turn
-                                .actions
-                                .iter()
-                                .scan(0, |_, action| match action.action {
-                                    Action::PieceMove { origin: _, target } => Some(target),
-                                })
-                                .find(|action_target_pos| {
-                                    let pos = action_target_pos;
-                                    let same_file = pos.x == target_tile.position.x;
-                                    let rank_before = (pos.y as i32)
-                                        == (target_tile.position.y as i32) - dy_forward;
-                                    same_file && rank_before
-                                });
-
-                            let capture_tile_pos = match just_moved_past {
-                                Some(inner) => inner,
-                                None => {
-                                    return Result::Err(
-                                        "en_passant only available just after an enabling move",
-                                    );
+                                ActionValidation::Promotion { piece_kind: piece_kind.clone() }
+                            },
+                            ActionPieceMoveKind::Standard => {
+                                let attempted_en_passant = i32::abs(dx) == 1 && target_tile.piece.is_none();
+                                if !attempted_en_passant {
+                                    ActionValidation::Standard
+                                } else {
+                                    let prev_turn = self.turns.get(self.turns.len() - 2);
+        
+                                    let prev_turn = match prev_turn {
+                                        Option::Some(prev_turn) => prev_turn,
+                                        _ => {
+                                            return Result::Err(
+                                                "en_passant only available after another move",
+                                            );
+                                        }
+                                    };
+        
+                                    let just_moved_past = prev_turn
+                                        .actions
+                                        .iter()
+                                        .scan(0, |_, action| match action.action {
+                                            Action::PieceMove { origin: _, target, kind: _ } => Some(target),
+                                        })
+                                        .find(|action_target_pos| {
+                                            let pos = action_target_pos;
+                                            let same_file = pos.x == target_tile.position.x;
+                                            let rank_before = (pos.y as i32)
+                                                == (target_tile.position.y as i32) - dy_forward;
+                                            same_file && rank_before
+                                        });
+        
+                                    let capture_tile_pos = match just_moved_past {
+                                        Some(inner) => inner,
+                                        None => {
+                                            return Result::Err(
+                                                "en_passant only available just after an enabling move",
+                                            );
+                                        }
+                                    };
+        
+                                    ActionValidation::EnPassant {
+                                        capture_tile: capture_tile_pos,
+                                    }
                                 }
-                            };
-
-                            ActionValidation::EnPassant {
-                                capture_tile: capture_tile_pos,
-                            }
+                            },
                         }
+
                     }
                     PieceKind::King => {
                         // TODO
@@ -333,7 +355,7 @@ impl Game {
                 }
 
                 Ok(action_validation)
-            }
+            },
         }
     }
 
@@ -346,7 +368,7 @@ impl Game {
         };
 
         match action.action {
-            Action::PieceMove { origin, target } => {
+            Action::PieceMove { origin, target, kind: _ } => {
                 let player = &mut self.players[self.current_player_index()];
 
                 let piece = {
@@ -368,7 +390,7 @@ impl Game {
                         let captured = capture_tile.piece.take().unwrap();
                         player.captured.push(captured);
                     }
-                    ActionValidation::Promotion => {
+                    ActionValidation::Promotion { piece_kind } => {
                         unimplemented!();
                     }
                 };
@@ -393,14 +415,24 @@ impl Game {
 
     pub fn move_from_str(&self, source: &str) -> Result<ActionPackage, String> {
         let components: Vec<&str> = source.split_ascii_whitespace().collect();
-        if components.len() != 2 {
-            return Result::Err("expected format like 'a6 b8'".to_owned());
-        }
+        
         let ap = ActionPackage {
             player: self.current_player_index(),
-            action: Action::PieceMove {
-                origin: Position::from_str(&components[0]).ok_or("invalid origin")?,
-                target: Position::from_str(&components[1]).ok_or("invalid target")?,
+            action: match components.len() {
+                2 => Action::piece_move(
+                    Position::from_str(&components[0]).ok_or("invalid origin")?,
+                    Position::from_str(&components[1]).ok_or("invalid target")?,
+                ),
+                4 if components[2]=="promote" => Action::PieceMove {
+                    origin: Position::from_str(&components[0]).ok_or("invalid origin")?,
+                    target: Position::from_str(&components[1]).ok_or("invalid target")?,
+                    kind: ActionPieceMoveKind::Promotion {
+                        piece_kind: PieceKind::from_str(&components[3]).ok_or("invalid promotion piece")?,
+                    },
+                },
+                _ => {
+                    return Result::Err("expected format like 'a6 b8' or 'a7 a8 promote Q'".to_owned());
+                },
             },
         };
         Result::Ok(ap)
@@ -468,6 +500,16 @@ impl Player {
     fn is_pawn_home(&self, board: &Board, pawn_position: Position) -> bool {
         let home_y = self.home_row(board) + self.dy_forward();
         (pawn_position.y as i32) == home_y
+    }
+}
+
+impl Action {
+    fn piece_move (origin: Position, target: Position) -> Action {
+        Action::PieceMove {
+            origin,
+            target,
+            kind: ActionPieceMoveKind::Standard,
+        }
     }
 }
 
@@ -684,7 +726,6 @@ mod tests {
         // Pawn: n*2 if piece.prev_movements.count=0 / piece at original position
         // Pawn: (nw, ne)*1 if can capture
         // Pawn: en_passant ((nw, ne)*1 if opponent.pawn did n*2 prev_turn and opponent.pawn.file = piece.file)
-        // Pawn: promotion (convert (to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn))
 
         let mut game = Game::new_standard_game();
 
@@ -719,7 +760,38 @@ mod tests {
         game.perform_action(game.move_from_str("h5 h4")?)
             .expect_err("pawn cannot capture forward");
 
-        // TODO: promotion
+        Ok(())
+    }
+
+    fn perform_many(game: &mut Game, commands: &str) -> Result<(), String> {
+        for source in commands.split_terminator('.') {
+            game.perform_action(game.move_from_str(source)?)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn pawn_promotion() -> Result<(), String> {
+        // Pawn: promotion (convert (to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn))
+
+        let mut game = Game::new();
+        game.add_pieces_from_str("Kh8 Pb7", game.player_black_index());
+        game.add_pieces_from_str("Kf8 Pa2", game.player_white_index());
+
+        perform_many(&mut game, "a2 a4.b7 b6.a4 a5.b6 b5.a5 a6.b5 b4.a6 a7.b4 b3")?; // move close to opposite side
+
+        game.perform_action(game.move_from_str("a7 a8 promote Q")?)?;
+        game.perform_action(game.move_from_str("b3 b2 promote Q")?)
+            .expect_err("only promote to opponents home row");
+        game.perform_action(game.move_from_str("b3 b2")?)?;
+
+        game.perform_action(game.move_from_str("a8 f3")?)?; // queen movement
+        game.perform_action(game.move_from_str("b2 b1")?)
+            .expect_err("need to choose promotion piece kind");
+        game.perform_action(game.move_from_str("b2 b1 promote N")?)?;
+
+        game.perform_action(game.move_from_str("f3 c3")?)?; // again, queen movement
+        game.perform_action(game.move_from_str("b1 c3")?)?; // knight movement
 
         Ok(())
     }

@@ -28,7 +28,7 @@ impl GameRepl {
         self.print_board()?;
         writeln!(
             self.stdout,
-            "Enter moves like 'a2 a3', 'status', 'undo', or 'exit'."
+            "Enter moves like 'a2 a3', 'a7 a8 promote Q' (enter king movement for castling), 'status', 'undo', or 'exit'."
         )?;
 
         self.prompt()?;
