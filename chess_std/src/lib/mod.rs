@@ -65,8 +65,8 @@ struct Turn {
     actions: Vec<ActionPackage>,
 }
 
-#[derive(Debug, Clone)]
-enum State {
+#[derive(Debug, Clone, PartialEq)]
+pub enum State {
     Active,
     Ended(StateEnded),
 }
@@ -80,8 +80,8 @@ struct Player {
 // TODO: use refs instead?
 type PlayerIndex = usize;
 
-#[derive(Debug, Clone)]
-enum StateEnded {
+#[derive(Debug, Clone, PartialEq)]
+pub enum StateEnded {
     Checkmate { winner: PlayerIndex },
     Resignation { winner: PlayerIndex },
     WinOnTime { winner: PlayerIndex },
@@ -89,8 +89,8 @@ enum StateEnded {
     Draw(StateEndedDraw),
 }
 
-#[derive(Debug, Clone)]
-enum StateEndedDraw {
+#[derive(Debug, Clone, PartialEq)]
+pub enum StateEndedDraw {
     DrawByAgreement,
     Stalemate,
     ThreefoldRepetition,
@@ -580,6 +580,14 @@ impl Game {
     fn is_tile_threatened(&self, _for_player: PlayerIndex, _tile: &Tile) -> bool {
         false
     }
+
+    pub fn get_state(&self) -> &State {
+        &self.state
+    }
+
+    pub fn is_check(&self, _towards_player: PlayerIndex) -> bool {
+        false
+    }
 }
 
 impl Player {
@@ -1005,9 +1013,38 @@ mod tests {
         Ok(())
     }
 
-    fn check_n_mate() {
-        // not allowed to move such that player put itself in "check"
-        // not allowed to move after checkmate
-        // check game state for checkmate + stalemate + other flag for check
+    #[test]
+    fn check_n_mate() -> Result<(), String> {
+        // TODO: stalemate
+
+        let mut game = Game::new();
+        game.add_pieces_from_str("Kh7 Pg8 Pg3", game.player_black_index());
+        game.add_pieces_from_str("Ka1 Rb6 Rc4", game.player_white_index());
+
+        assert_eq!(game.is_check(game.player_white_index()), false);
+        assert_eq!(game.is_check(game.player_black_index()), false);
+        perform_many(&mut game, "b6 b7")?;
+        assert_eq!(game.is_check(game.player_white_index()), false);
+        assert_eq!(game.is_check(game.player_black_index()), true);
+        perform_many(&mut game, "h7 g7").expect_err("has to escape check");
+        perform_many(&mut game, "g8 g7")?;
+        assert_eq!(game.is_check(game.player_black_index()), false);
+        perform_many(&mut game, "b7 g7")?;
+        assert_eq!(game.is_check(game.player_black_index()), true);
+        
+        let mut game2 = game.clone();
+        perform_many(&mut game2, "h7 g7")?; // king capturing checking piece
+        assert_eq!(game.is_check(game.player_black_index()), false);
+
+        perform_many(&mut game, "h7 h8")?;
+        assert_eq!(game.is_check(game.player_black_index()), false);
+        assert_eq!(game.get_state().clone(), State::Active);
+        perform_many(&mut game, "c4 c8")?;
+        assert_eq!(game.is_check(game.player_black_index()), true);
+        assert_eq!(game.get_state().clone(), State::Ended(StateEnded::Checkmate { winner: game.player_white_index() }));
+
+        perform_many(&mut game, "g3 g2").expect_err("not allowed to move after checkmate");
+
+        Ok(())
     }
 }
