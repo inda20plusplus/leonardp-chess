@@ -141,7 +141,7 @@ pub struct ActionPackage {
     pub player: PlayerIndex,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum ActionValidation {
     Standard,
     EnPassant { capture_tile: Position },
@@ -262,7 +262,8 @@ impl Game {
     fn validate_action_inner(&self, action: &ActionPackage) -> Result<ActionValidation, &str> {
         // TODO: ®eturn err message?
         let player = action.player;
-        let action = &action.action;
+        let action_package = action;
+        let action = &action_package.action;
 
         match action {
             Action::PieceMove {
@@ -287,10 +288,6 @@ impl Game {
                 let dy = (target.y as i32) - (origin.y as i32);
 
                 piece.kind.delta_move_valid(dx, dy)?;
-
-                // TODO: check special move constraints
-                //  eg. limit direction + initial move + diagonal + end rank for pawn
-                //  eg. castling for king
 
                 // TODO: move PieceKind specific code to PieceKind
                 let action_validation = match piece.kind {
@@ -499,7 +496,20 @@ impl Game {
                     }
                 }
 
-                Ok(action_validation)
+                // check check
+                let mut game2 = self.clone();
+                let attempt = game2.perform_action_inner(action_package.clone(), action_validation.clone());
+                if attempt.is_err() {
+                    // TODO: unreachable?
+                    Ok(action_validation)
+                } else {
+                    if game2.is_check(action_package.player) {
+                        Err("cannot move into check")
+                    } else {
+                        Ok(action_validation)
+                    }
+                }
+
             }
         }
     }
@@ -697,8 +707,12 @@ impl Game {
         let pieces = self.get_pieces();
         let res = pieces
             .iter()
-            .find(|x| x.1.player == towards_player && x.1.kind == PieceKind::King)
-            .unwrap();
+            .find(|x| x.1.player == towards_player && x.1.kind == PieceKind::King);
+
+        if res.is_none() {
+            return false; // no matching king
+        }
+        let res = res.unwrap();
 
         self.is_tile_threatened(towards_player, &res.0)
     }
