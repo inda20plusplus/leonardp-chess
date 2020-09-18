@@ -8,6 +8,7 @@ use std::io::{self, BufRead, Result as IOResult};
 type IOResultPlain = IOResult<()>;
 
 fn main() -> IOResultPlain {
+
     let stdout = io::stdout();
 
     let stdin = io::stdin();

@@ -174,7 +174,7 @@ impl Game {
 
     pub fn setup_standard_board_pieces(&mut self) {
         // TODO: assert call only once?
-        self.add_pieces_from_str("Ra8 Nb8 Bc8 Kd8 Qe8 Bf8 Ng8 Rh8", self.player_black_index());
+        self.add_pieces_from_str("Ra8 Nb8 Bc8 Qd8 Ke8 Bf8 Ng8 Rh8", self.player_black_index());
         self.add_pieces_from_str("Pa7 Pb7 Pc7 Pd7 Pe7 Pf7 Pg7 Ph7", self.player_black_index());
 
         self.add_pieces_from_str("Pa2 Pb2 Pc2 Pd2 Pe2 Pf2 Pg2 Ph2", self.player_white_index());
@@ -183,7 +183,7 @@ impl Game {
     fn add_piece(&mut self, player: PlayerIndex, position: Position, kind: PieceKind) {
         let piece = Piece::new(kind, player, self);
         let tile = &mut self.board.grid[position.y][position.x];
-        assert!(tile.piece.is_none());
+        assert!(tile.piece.is_none(), format!("cannot add piece to tile with existing piece at {}", tile.position.to_string_code()));
         tile.piece = Option::Some(piece);
     }
     pub fn add_pieces_from_str(&mut self, source: &str, player: PlayerIndex) {
@@ -662,6 +662,13 @@ impl Piece {
 mod tests {
     use super::*;
 
+    fn perform_many(game: &mut Game, commands: &str) -> Result<(), String> {
+        for source in commands.split_terminator('.') {
+            game.perform_action(game.move_from_str(source)?)?;
+        }
+        Ok(())
+    }
+
     #[test]
     fn initial_board_setup() {
         let game = Game::new_standard_game();
@@ -779,13 +786,6 @@ mod tests {
         Ok(())
     }
 
-    fn perform_many(game: &mut Game, commands: &str) -> Result<(), String> {
-        for source in commands.split_terminator('.') {
-            game.perform_action(game.move_from_str(source)?)?;
-        }
-        Ok(())
-    }
-
     #[test]
     fn pawn_promotion() -> Result<(), String> {
         // Pawn: promotion (convert (to (Q, R, B, or K) of same color) on move to last rank (ie. required + during same turn))
@@ -812,19 +812,63 @@ mod tests {
         Ok(())
     }
 
-    // #[test]
-    fn king_moves() -> Result<(), String> {
-        // not allowed to move such that player put itself in "check"
+    #[test]
+    fn king_castling() -> Result<(), String> {
         // King: castling (a, h)-side
 
         let mut game = Game::new();
-        game.add_pieces_from_str("Kd8", game.player_black_index());
-        game.add_pieces_from_str("Kd8", game.player_white_index());
+        game.add_pieces_from_str("Kh8 Rb3 Ph7", game.player_black_index());
+        game.add_pieces_from_str("Ra1 Pb1 Ke1 Pe2", game.player_white_index());
 
-        // game.perform_action(game.move_from_str("a7 a4")?)
-        //     .expect_err("pawn can only move at max 2 steps initially")
+        macro_rules! castle {
+            (a $game:expr) => (perform_many(&mut $game, "e1 c1"));
+            (h $game:expr) => (perform_many(&mut $game, "e1 g1"));
+            (a_black $game:expr) => (perform_many(&mut $game, "e8 c8"));
+            (h_black $game:expr) => (perform_many(&mut $game, "e8 g8"));
+        };
 
-        unimplemented!();
-        // Ok(())
+        castle!(a game).expect_err("a-side white: piece in the way");
+        perform_many(&mut game, "e2 e3.b3 c3.b1 b2.h7 h6")?;
+        
+        castle!(a game).expect_err("a-side white: path under attack");
+        perform_many(&mut game, "e3 e4.c3 b3")?;
+        
+        game.perform_action(game.move_from_str("e1 b1")?)
+            .expect_err("a-side white: faulty target");
+        
+        let mut game2 = game.clone();
+        perform_many(&mut game2, "a1 b1.h6 h5.b1 a1.h5 h4")?; // move the rook, then move it back
+        castle!(a game2).expect_err("a-side white: rook has been moved");
+        castle!(h game2).expect_err("h-side white: no rook to castle with");
+        let mut game2 = game.clone();
+        perform_many(&mut game2, "e1 e2.h6 h5.e2 e1.h5 h4")?; // move the king, then move it back
+        castle!(a game2).expect_err("a-side white: king has been moved");
+
+        castle!(a game).expect("a-side white failed");
+
+
+        let mut game = Game::new();
+        game.add_pieces_from_str("Kh8 Ph7", game.player_black_index());
+        game.add_pieces_from_str("Rh1 Ke1", game.player_white_index());
+        game.perform_action(game.move_from_str("e1 f1")?)
+            .expect_err("h-side white: faulty target");
+        castle!(h game).expect("h-side white failed");
+
+        let mut game = Game::new();
+        game.add_pieces_from_str("Ra8 Ke8 Rh8", game.player_black_index());
+        game.add_pieces_from_str("Pe2 Ke1 Pf1", game.player_white_index());
+        perform_many(&mut game, "f1 f2")?;
+        let mut game2 = game.clone();
+        
+        castle!(a_black game).expect("a-side black failed");
+        castle!(h_black game2).expect("h-side black failed");
+
+        Ok(())
+    }
+
+    fn check_n_mate() {
+        // not allowed to move such that player put itself in "check"
+        // not allowed to move after checkmate
+        // check game state for checkmate + stalemate + other flag for check
     }
 }
