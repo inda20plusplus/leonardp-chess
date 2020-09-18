@@ -552,6 +552,11 @@ impl Game {
                     actions: vec![],
                 });
 
+                if let Some(state) = self.check_endstate() {
+                    self.state = State::Ended(state);
+                    self.turns.pop();
+                }
+                
                 Result::Ok(())
             }
         }
@@ -659,12 +664,75 @@ impl Game {
         pieces
     }
 
+    fn get_tiles(&self) -> Vec<&Tile> {
+        // TODO: use iterators
+        let mut tiles: Vec<&Tile> = Vec::new();
+        for row in self.board.grid.iter() {
+            for tile in row {
+                tiles.push(tile);
+            }
+        }
+        tiles
+    }
+
     pub fn is_check(&self, towards_player: PlayerIndex) -> bool {
         let pieces = self.get_pieces();
         let res = pieces.iter()
             .find(|x| x.1.player == towards_player && x.1.kind==PieceKind::King).unwrap();
 
         self.is_tile_threatened(towards_player, &res.0)
+    }
+
+    fn check_endstate(&self) -> Option<StateEnded> {
+        let current = self.current_player_index();
+        let opponent_player_index = self.next_opponent_player_index(current);
+        if !self.is_check(current) {
+            return None;
+        }
+
+        // TODO: check if player can move such that it escapes check
+        // for each player piece, for each tile, attempt move, and if successfull, if not check anymore, return ok
+        // (very inefficient, 16*64≈1k tests)
+        // (simple optimisation: 1. start with king; 2. only use piece kind movements; 3. only check towards path of fire)
+
+        let tiles = self.get_tiles();
+        let non_checking_action = self.get_pieces().iter()
+            .filter(|(_, piece)| piece.player==current)
+            .map(|(tile, _piece)| {
+                tiles.iter().map(move |other| {
+
+                    // TODO: doesn't handle castling + promotion
+
+                    let action = Action::piece_move(
+                        tile.position.clone(),
+                        other.position.clone(),
+                    );
+                    let ap = ActionPackage {
+                        player: current,
+                        action: action.clone(),
+                    };
+
+                    let mut game2 = self.clone();
+                    let attempt = game2.perform_action(ap);
+                    if !attempt.is_ok() {
+                        return None
+                    }
+                    
+                    if game2.is_check(current) {
+                        None
+                    } else {
+                        Some(action)
+                    }
+                }).filter(|a| a.is_some())
+            }).flatten().next();
+
+        let non_checking_action_exits = non_checking_action.is_some();
+
+        if non_checking_action_exits {
+            None
+        } else {
+            Some(StateEnded::Checkmate {winner: opponent_player_index})
+        }
     }
 }
 
@@ -1118,12 +1186,12 @@ mod tests {
         
         let mut game2 = game.clone();
         perform_many(&mut game2, "h7 g7")?; // king capturing checking piece
-        assert_eq!(game.is_check(game.player_black_index()), false);
+        assert_eq!(game2.is_check(game2.player_black_index()), false);
 
         perform_many(&mut game, "h7 h8")?;
         assert_eq!(game.is_check(game.player_black_index()), false);
         assert_eq!(game.get_state().clone(), State::Active);
-        perform_many(&mut game, "c4 c8")?;
+        perform_many(&mut game, "g7 f7.g3 g2.c4 c8")?;
         assert_eq!(game.is_check(game.player_black_index()), true);
         assert_eq!(game.get_state().clone(), State::Ended(StateEnded::Checkmate { winner: game.player_white_index() }));
 
