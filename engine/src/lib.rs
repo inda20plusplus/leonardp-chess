@@ -51,6 +51,8 @@ use position::File;
 pub use position::Position;
 pub use view::*;
 
+use std::str::FromStr;
+
 #[derive(Clone)]
 pub struct Game {
     pub board: Board,
@@ -503,12 +505,10 @@ impl Game {
                 if attempt.is_err() {
                     // TODO: unreachable?
                     Ok(action_validation)
+                } else if game2.is_check(action_package.player) {
+                    Err("cannot move into check")
                 } else {
-                    if game2.is_check(action_package.player) {
-                        Err("cannot move into check")
-                    } else {
-                        Ok(action_validation)
-                    }
+                    Ok(action_validation)
                 }
             }
         }
@@ -596,12 +596,20 @@ impl Game {
             player: self.current_player_index(),
             action: match components.len() {
                 2 => Action::piece_move(
-                    Position::from_str(&components[0]).ok_or("invalid origin")?,
-                    Position::from_str(&components[1]).ok_or("invalid target")?,
+                    Position::from_str(&components[0])
+                        .ok()
+                        .ok_or("invalid origin")?,
+                    Position::from_str(&components[1])
+                        .ok()
+                        .ok_or("invalid target")?,
                 ),
                 4 if components[2] == "promote" => Action::PieceMove {
-                    origin: Position::from_str(&components[0]).ok_or("invalid origin")?,
-                    target: Position::from_str(&components[1]).ok_or("invalid target")?,
+                    origin: Position::from_str(&components[0])
+                        .ok()
+                        .ok_or("invalid origin")?,
+                    target: Position::from_str(&components[1])
+                        .ok()
+                        .ok_or("invalid target")?,
                     kind: ActionPieceMoveKind::Promotion {
                         piece_kind: PieceKind::from_str(&components[3])
                             .ok_or("invalid promotion piece")?,
@@ -762,8 +770,7 @@ impl Game {
                     .map(move |other| {
                         // TODO: doesn't handle castling + promotion
 
-                        let action =
-                            Action::piece_move(tile.position.clone(), other.position.clone());
+                        let action = Action::piece_move(tile.position, other.position);
                         let ap = ActionPackage {
                             player: current,
                             action: action.clone(),
@@ -1007,11 +1014,12 @@ mod tests {
     }
 
     #[test]
-    /*fn initial_board_setup() {
+    fn initial_board_setup() {
         let game = Game::new_standard_game();
         let actual = game.board.print(BoardPrintStyle::ascii_bordered());
-        assert_eq!(actual, include_str!("../../test_data/board_plain.txt"));
-    }*/
+        assert_eq!(actual, include_str!("../test_data/board_plain.txt"));
+    }
+
     #[test]
     fn initial_knight_moves() {
         let mut game = Game::new_standard_game();
@@ -1066,11 +1074,11 @@ mod tests {
         game.perform_action(game.move_from_str("e1 e3")?)
             .expect_err("king cannot move 2 steps");
         game.perform_action(game.move_from_str("d1 h5")?)?;
-        /*
+        
         assert_eq!(
             game.board.print(BoardPrintStyle::ascii_bordered()),
-            include_str!("../../test_data/board_std_moves.txt")
-        );*/
+            include_str!("../test_data/board_std_moves.txt")
+        );
         assert_eq!(
             game.status_message(),
             "Active: White(3p), Black(0p); Black's move"

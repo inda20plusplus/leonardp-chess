@@ -1,15 +1,14 @@
 # indachess
-*Chess rule engine in rust, see chess_std*
+*Chess rule engine in rust, see /engine*
 
 ![chessboard](docs/chessboard_moved.png)
 
 ### Quick start:
 
 - `git clone <url> indachess && cd $_`
-- `cd chess_std`
 - `cargo test`
-- `cargo run`
-- `cargo build --release && ./targets/release/chess_std --clear-screen`
+- `cargo run --bin chess_repl` # or hansing_gui
+- `cargo build --bin chess_repl --release && ./targets/release/chess_repl --clear-screen`
 
 ### Contributing
 

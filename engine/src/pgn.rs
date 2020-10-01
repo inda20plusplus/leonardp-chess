@@ -1,6 +1,7 @@
 use crate::piece::*;
 use crate::position::*;
 // use crate::lib::matcher::*;
+use std::str::FromStr;
 
 pub struct PGNCommand {
     pub piece: Option<PieceKind>,
@@ -15,7 +16,7 @@ impl PGNCommand {
                 let piece = PieceKind::from_str(&source[0..1]);
                 let position = Position::from_str(&source[1..3]);
 
-                if let Option::Some(position) = position {
+                if let Ok(position) = position {
                     Option::Some(PGNCommand { piece, position })
                 } else {
                     Option::None
@@ -24,7 +25,7 @@ impl PGNCommand {
             2 => {
                 let position = Position::from_str(&source[1..3]);
 
-                if let Option::Some(position) = position {
+                if let Ok(position) = position {
                     Option::Some(PGNCommand {
                         piece: Option::None,
                         position,
