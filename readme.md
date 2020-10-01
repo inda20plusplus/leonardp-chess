@@ -7,8 +7,8 @@
 
 - `git clone <url> indachess && cd $_`
 - `cargo test`
-- `cargo run`
-- `cargo build --release && ./targets/release/repl --clear-screen`
+- `cargo run --bin chess_repl` # or hansing_gui
+- `cargo build --bin chess_repl --release && ./targets/release/chess_repl --clear-screen`
 
 ### Contributing
 
