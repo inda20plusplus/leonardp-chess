@@ -1,5 +1,5 @@
 [package]
-name = "gui"
+name = "hansing_gui"
 version = "0.1.0"
 authors = ["Morris <hansing@kth.se>"]
 edition = "2018"
@@ -11,4 +11,4 @@ path = "src/lib.rs"
 
 [dependencies]
 ggez = "*"
-chess_std = {path = "../chess_std"}
+chess_engine = {path = "../engine"}

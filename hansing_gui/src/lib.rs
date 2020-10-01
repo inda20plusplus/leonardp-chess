@@ -4,11 +4,11 @@ use ggez::graphics::DrawParam;
 use ggez::{event, graphics::*, Context, GameResult};
 use std::{env, path};
 
-extern crate chess_std;
-use chess_std::color::Color as PieceColor;
-use chess_std::piece::PieceKind;
-use chess_std::Game;
-use chess_std::Position;
+extern crate chess_engine;
+use chess_engine::color::Color as PieceColor;
+use chess_engine::piece::PieceKind;
+use chess_engine::Game;
+use chess_engine::Position;
 
 mod texturepack;
 use texturepack::Texturepack;

@@ -1,5 +1,5 @@
 extern crate gui;
-extern crate chess_std;
+extern crate chess_engine;
 
 use gui::*;
 fn main(){

@@ -227,7 +227,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "chess_std"
+name = "chess_engine"
 version = "0.1.0"
 
 [[package]]
@@ -759,10 +759,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "gui"
+name = "hansing_gui"
 version = "0.1.0"
 dependencies = [
- "chess_std 0.1.0",
+ "chess_engine 0.1.0",
  "ggez 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
