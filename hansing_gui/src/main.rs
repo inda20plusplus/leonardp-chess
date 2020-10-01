@@ -1,5 +1,5 @@
-use lib;
+use hansing_gui;
 
 fn main() {
-    lib::play_chess()
+    hansing_gui::play_chess()
 }

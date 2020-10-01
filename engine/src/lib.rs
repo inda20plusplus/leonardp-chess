@@ -970,6 +970,18 @@ impl Piece {
 mod tests {
     use super::*;
 
+    macro_rules! assert_eq_lines {
+        ($left:expr, $right:expr) => {
+            {
+                let right = $right;
+                let left = $left;
+                let right: Vec<_> = right.lines().collect();
+                let left: Vec<_> = left.lines().collect();
+                assert_eq!(right, left)
+            }
+        };
+    }
+
     fn perform_many(game: &mut Game, commands: &str) -> Result<(), String> {
         for source in commands.split_terminator('.') {
             game.perform_action(game.move_from_str(source)?)?;
@@ -981,7 +993,7 @@ mod tests {
     fn initial_board_setup() {
         let game = Game::new_standard_game();
         let actual = game.board.print(BoardPrintStyle::ascii_bordered());
-        assert_eq!(actual, include_str!("../test_data/board_plain.txt"));
+        assert_eq_lines!(actual, include_str!("../test_data/board_plain.txt"));
     }
 
     #[test]
@@ -1039,7 +1051,7 @@ mod tests {
             .expect_err("king cannot move 2 steps");
         game.perform_action(game.move_from_str("d1 h5")?)?;
 
-        assert_eq!(
+        assert_eq_lines!(
             game.board.print(BoardPrintStyle::ascii_bordered()),
             include_str!("../test_data/board_std_moves.txt")
         );
