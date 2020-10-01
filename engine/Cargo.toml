@@ -1,5 +1,5 @@
 [package]
-name = "chess_sketch"
+name = "chess_engine"
 version = "0.1.0"
 authors = ["Leonard Pauli <leonardpauli@me.com>"]
 edition = "2018"
