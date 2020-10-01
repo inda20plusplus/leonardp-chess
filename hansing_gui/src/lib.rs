@@ -140,14 +140,14 @@ impl MainState {
         }
     }
 
-    fn atempt_move(&mut self, from: Tile, to: Tile, promote_to: Option<PieceKind>) {
+    fn attempt_move(&mut self, from: Tile, to: Tile, promote_to: Option<PieceKind>) {
         let ap = self.move_from_gui(from.to_pos(), to.to_pos(), promote_to);
 
         if let Ok(ap) = ap {
             let res = self.game.perform_action(ap);
             if let Err(res) = res {
                 if res == "pawn promotion need to be specified" {
-                    self.atempt_move(from, to, Some(PieceKind::Queen));
+                    self.attempt_move(from, to, Some(PieceKind::Queen));
                 }
             }
             self.display_data = self.make_display_data();
@@ -217,7 +217,7 @@ impl event::EventHandler for MainState {
                 self.selected_tile = None;
             } else {
                 if let (Some(from), Some(to)) = (self.selected_tile, clicked_tile) {
-                    self.atempt_move(from, to, None);
+                    self.attempt_move(from, to, None);
                 }
 
                 self.selected_tile = None;
