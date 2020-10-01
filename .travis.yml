@@ -1,4 +1,3 @@
-sudo: false
 language: rust
 
 cache: cargo
@@ -12,13 +11,14 @@ matrix:
       before_script:
         - rustup component add rustfmt-preview
       script:
-        - cargo fmt --all -- --write-mode=diff
+        - cargo fmt -- --check
         - cargo test
-    - rust: nightly
-      before_script:
-        - rustup component add clippy-preview
-      script:
-        - cargo clippy
+    # TODO: later, add multiple os:es + nightly
+    # - rust: nightly
+    #   before_script:
+    #     - rustup component add clippy-preview
+    #   script:
+    #     - cargo clippy
 
 branches:
   only:
