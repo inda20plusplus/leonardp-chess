@@ -1,6 +1,10 @@
 sudo: false
 language: rust
 
+cache: cargo
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt update && sudo apt install -y libasound2-dev libudev-dev pkg-config; fi
+
 # https://github.com/rust-analyzer/rust-analyzer/blob/7e0a84c36f57def4ef2096f450160dff9f1d74e8/.travis.yml
 matrix:
   include:
