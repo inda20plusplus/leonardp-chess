@@ -109,16 +109,16 @@ pub struct Board {
 }
 
 #[derive(Clone)]
-struct Tile {
+pub struct Tile {
     position: Position,
-    piece: Option<Piece>,
+    pub piece: Option<Piece>,
 }
 
 #[derive(Clone)]
-struct Piece {
-    kind: PieceKind,
+pub struct Piece {
+    pub kind: PieceKind,
     player: PlayerIndex,
-    color: Color,
+    pub color: Color,
     moved: bool,
 }
 
@@ -625,27 +625,6 @@ impl Game {
         Result::Ok(ap)
     }
 
-    //FOR GUI
-    pub fn move_from_gui(
-        &self,
-        from: Position,
-        to: Position,
-        promote_to: Option<PieceKind>,
-    ) -> Result<ActionPackage, String> {
-        let ap = ActionPackage {
-            player: self.current_player_index(),
-            action: match promote_to {
-                None => Action::piece_move(from, to),
-                Some(pk) => Action::PieceMove {
-                    origin: from,
-                    target: to,
-                    kind: ActionPieceMoveKind::Promotion { piece_kind: pk },
-                },
-            },
-        };
-        Result::Ok(ap)
-    }
-
     pub fn status_message(&self) -> String {
         match self.state {
             State::Active => {
@@ -837,11 +816,18 @@ impl Player {
 }
 
 impl Action {
-    fn piece_move(origin: Position, target: Position) -> Action {
+    pub fn piece_move(origin: Position, target: Position) -> Action {
         Action::PieceMove {
             origin,
             target,
             kind: ActionPieceMoveKind::Standard,
+        }
+    }
+    pub fn piece_promotion(origin: Position, target: Position, piece_kind: PieceKind) -> Action {
+        Action::PieceMove {
+            origin,
+            target,
+            kind: ActionPieceMoveKind::Promotion { piece_kind },
         }
     }
 }
@@ -864,17 +850,10 @@ impl Board {
                 .collect(),
         }
     }
-    //FOR GUI
-    pub fn make_display_data(&self) -> Vec<Option<(Color, PieceKind)>> {
-        let mut dd = Vec::new();
-        for rank in 0..self.grid.len() {
-            for file in 0..self.grid[0].len() {
-                dd.push(self.grid[rank][file].piece_info());
-            }
-        }
-        dd
-    }
 
+    pub fn get_grid(&self) -> &Vec<TileRow> {
+        &self.grid
+    }
     pub fn print(&self, style: BoardPrintStyle) -> String {
         assert!(!self.grid.is_empty());
 
@@ -974,14 +953,6 @@ impl Tile {
             },
         }
     }
-    pub fn piece_info(&self) -> Option<(Color, PieceKind)> {
-        if self.piece.is_none() {
-            None
-        } else {
-            let piece = self.piece.clone().unwrap();
-            Some((piece.color(), piece.kind()))
-        }
-    }
 }
 
 impl Piece {
@@ -992,12 +963,6 @@ impl Piece {
             color: game.players[player].color,
             moved: false,
         }
-    }
-    pub fn color(&self) -> Color {
-        self.color
-    }
-    pub fn kind(&self) -> PieceKind {
-        self.kind.clone()
     }
 }
 

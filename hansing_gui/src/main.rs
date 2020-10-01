@@ -1,7 +1,5 @@
-extern crate chess_engine;
-extern crate gui;
+use lib;
 
-use gui::*;
 fn main() {
-    play_chess()
+    lib::play_chess()
 }

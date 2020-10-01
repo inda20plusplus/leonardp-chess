@@ -4,16 +4,15 @@ use ggez::graphics::DrawParam;
 use ggez::{event, graphics::*, Context, GameResult};
 use std::{env, path};
 
-extern crate chess_engine;
 use chess_engine::color::Color as PieceColor;
 use chess_engine::piece::PieceKind;
-use chess_engine::Game;
-use chess_engine::Position;
+use chess_engine::{Game, Position};
 
 mod texturepack;
-use texturepack::Texturepack;
-//mod assets;
 mod interface;
+
+use texturepack::Texturepack;
+use interface::{move_to_string};
 
 const BOARD_SIZE: f32 = 800.0;
 const BOARD_DIM: usize = 8;
@@ -60,10 +59,11 @@ impl Tile {
         }
     }
 }
+type DisplayData = Vec<Option<(PieceColor, PieceKind)>>;
 struct MainState {
     selected_tile: Option<Tile>,
     game: Game,
-    display_data: Vec<Option<(PieceColor, PieceKind)>>,
+    display_data: DisplayData,
     update_visuals: bool,
     texturepack: Texturepack,
 }
@@ -142,10 +142,10 @@ impl MainState {
         }
     }
     fn _atempt_move_str(&mut self, from: Tile, to: Tile) {
-        println!("Attempting move: {}", interface::move_to_string(from, to));
+        println!("Attempting move: {}", move_to_string(from, to));
         let ap = self
             .game
-            .move_from_str(interface::move_to_string(from, to).as_str());
+            .move_from_str(move_to_string(from, to).as_str());
 
         if let Ok(ap) = ap {
             println!("ap ok");
@@ -153,15 +153,13 @@ impl MainState {
             if let Err(res) = res {
                 println!("{:?}", res);
             }
-            self.display_data = self.game.board.make_display_data();
+            self.display_data = self.make_display_data();
             self.update_visuals = true;
         }
     }
     fn atempt_move(&mut self, from: Tile, to: Tile, promote_to: Option<PieceKind>) {
-        println!("Attempting move: {}", interface::move_to_string(from, to));
-        let ap = self
-            .game
-            .move_from_gui(from.to_pos(), to.to_pos(), promote_to);
+        println!("Attempting move: {}", move_to_string(from, to));
+        let ap = self.move_from_gui(from.to_pos(), to.to_pos(), promote_to);
 
         if let Ok(ap) = ap {
             let res = self.game.perform_action(ap);
@@ -170,9 +168,40 @@ impl MainState {
                     self.atempt_move(from, to, Some(PieceKind::Queen));
                 }
             }
-            self.display_data = self.game.board.make_display_data();
+            self.display_data = self.make_display_data();
             self.update_visuals = true;
         }
+    }
+}
+
+impl MainState {
+    fn make_display_data(&mut self) -> DisplayData {
+        let grid = self.game.board.get_grid();
+        let mut dd = Vec::new();
+        for rank in 0..grid.len() {
+            for file in 0..grid[0].len() {
+                let tile = &grid[rank][file];
+                let cell = tile.piece.as_ref().map(|p| p.clone()).map(|p| (p.color, p.kind));
+                dd.push(cell);
+            }
+        }
+        dd
+    }
+    pub fn move_from_gui(
+        &self,
+        from: Position,
+        to: Position,
+        promote_to: Option<PieceKind>,
+    ) -> Result<chess_engine::ActionPackage, String> {
+        let game = &self.game;
+        let ap = chess_engine::ActionPackage {
+            player: game.current_player_index(),
+            action: match promote_to {
+                None => chess_engine::Action::piece_move(from, to),
+                Some(pk) => chess_engine::Action::piece_promotion(from, to, pk),
+            },
+        };
+        Ok(ap)
     }
 }
 
@@ -232,7 +261,7 @@ pub fn play_chess() {
         .add_resource_path(path);
     if let Ok((c, event_loop)) = &mut window.build() {
         let mut state = &mut MainState::new();
-        state.display_data = state.game.board.make_display_data();
+        state.display_data = state.make_display_data();
         let res = event::run(c, event_loop, state);
         if let Err(res) = res {
             println!("{}", res);
