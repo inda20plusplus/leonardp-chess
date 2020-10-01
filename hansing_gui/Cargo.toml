@@ -5,9 +5,6 @@ authors = ["Morris <hansing@kth.se>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[lib]
-name = "lib"
-path = "src/lib/mod.rs"
 
 [dependencies]
 ggez = "*"
