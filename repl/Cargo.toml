@@ -1,0 +1,8 @@
+[package]
+name = "chess_repl"
+version = "0.1.0"
+authors = ["Leonard Pauli <leonardpauli@me.com>"]
+edition = "2018"
+
+[dependencies]
+chess_engine = { path = "../engine" }

@@ -1,7 +1,6 @@
-mod lib;
 mod repl;
 
-use lib::*;
+use chess_engine::Game;
 use repl::GameRepl;
 use std::io::{self, BufRead, Result as IOResult};
 
@@ -17,7 +16,7 @@ fn main() -> IOResultPlain {
     let game = Game::new_standard_game();
 
     let mut repl = GameRepl::new(game, stdout);
-    repl.clear_screen = std::env::args().find(|x| x == "--clear-screen").is_some();
+    repl.clear_screen = std::env::args().any(|x| x == "--clear-screen");
 
     repl.connect(lines)?;
 

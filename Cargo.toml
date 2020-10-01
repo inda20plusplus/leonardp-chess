@@ -1,3 +1,7 @@
-
 [workspace]
-members = ["chess_std", "gui"]
+
+members = [
+	"engine",
+	"repl",
+	"hansing_gui",
+]

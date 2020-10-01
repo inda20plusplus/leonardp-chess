@@ -1,4 +1,5 @@
 pub use crate::view::*;
+use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Position {
@@ -19,33 +20,38 @@ pub struct Rank {
 }
 
 impl Position {
-    pub fn from_str(source: &str) -> Option<Position> {
+    pub fn to_string_code(&self) -> String {
+        let file = File::new(self.x).print(PrintStyle::Ascii);
+        format!("{}{}", file, self.y + 1)
+    }
+}
+
+impl FromStr for Position {
+    type Err = ();
+
+    fn from_str(source: &str) -> Result<Self, Self::Err> {
         let mut chars = vec![];
 
         source.to_uppercase().chars().for_each(|a| chars.push(a));
         if chars.len() != 2 {
-            return Option::None;
+            return Err(());
         }
 
         let (x, y) = (chars[0] as u8, chars[1] as u8);
         if x < b'A' || x > b'Z' {
-            return Option::None;
+            return Err(());
         }
         if y < b'0' || y > b'9' {
-            return Option::None;
+            return Err(());
         }
 
         let x = x - b'A';
         let y = y - b'1';
 
-        Option::Some(Position {
+        Ok(Position {
             x: x as usize,
             y: y as usize,
         })
-    }
-    pub fn to_string_code(&self) -> String {
-        let file = File::new(self.x).print(PrintStyle::Ascii);
-        format!("{}{}", file, self.y + 1)
     }
 }
 

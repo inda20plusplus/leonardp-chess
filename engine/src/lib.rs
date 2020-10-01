@@ -51,6 +51,8 @@ use position::File;
 pub use position::Position;
 pub use view::*;
 
+use std::str::FromStr;
+
 #[derive(Clone)]
 pub struct Game {
     pub board: Board,
@@ -107,16 +109,16 @@ pub struct Board {
 }
 
 #[derive(Clone)]
-struct Tile {
+pub struct Tile {
     position: Position,
-    piece: Option<Piece>,
+    pub piece: Option<Piece>,
 }
 
 #[derive(Clone)]
-struct Piece {
-    kind: PieceKind,
+pub struct Piece {
+    pub kind: PieceKind,
     player: PlayerIndex,
-    color: Color,
+    pub color: Color,
     moved: bool,
 }
 
@@ -503,12 +505,10 @@ impl Game {
                 if attempt.is_err() {
                     // TODO: unreachable?
                     Ok(action_validation)
+                } else if game2.is_check(action_package.player) {
+                    Err("cannot move into check")
                 } else {
-                    if game2.is_check(action_package.player) {
-                        Err("cannot move into check")
-                    } else {
-                        Ok(action_validation)
-                    }
+                    Ok(action_validation)
                 }
             }
         }
@@ -596,12 +596,20 @@ impl Game {
             player: self.current_player_index(),
             action: match components.len() {
                 2 => Action::piece_move(
-                    Position::from_str(&components[0]).ok_or("invalid origin")?,
-                    Position::from_str(&components[1]).ok_or("invalid target")?,
+                    Position::from_str(&components[0])
+                        .ok()
+                        .ok_or("invalid origin")?,
+                    Position::from_str(&components[1])
+                        .ok()
+                        .ok_or("invalid target")?,
                 ),
                 4 if components[2] == "promote" => Action::PieceMove {
-                    origin: Position::from_str(&components[0]).ok_or("invalid origin")?,
-                    target: Position::from_str(&components[1]).ok_or("invalid target")?,
+                    origin: Position::from_str(&components[0])
+                        .ok()
+                        .ok_or("invalid origin")?,
+                    target: Position::from_str(&components[1])
+                        .ok()
+                        .ok_or("invalid target")?,
                     kind: ActionPieceMoveKind::Promotion {
                         piece_kind: PieceKind::from_str(&components[3])
                             .ok_or("invalid promotion piece")?,
@@ -612,28 +620,6 @@ impl Game {
                         "expected format like 'a6 b8' or 'a7 a8 promote Q'".to_owned(),
                     );
                 }
-            },
-        };
-        Result::Ok(ap)
-    }
-
-    //FOR GUI
-    pub fn move_from_gui(&self, from: Position, to: Position, promote_to: Option<PieceKind>) -> Result<ActionPackage, String> {
-        let ap = ActionPackage {
-            player: self.current_player_index(),
-            action: match promote_to{
-                None => Action::piece_move(
-                    from,
-                    to,
-                    
-                ),
-                Some(pk) => Action::PieceMove {
-                    origin: from,
-                    target: to,
-                    kind: ActionPieceMoveKind::Promotion {
-                        piece_kind: pk,
-                    },
-                },
             },
         };
         Result::Ok(ap)
@@ -762,8 +748,7 @@ impl Game {
                     .map(move |other| {
                         // TODO: doesn't handle castling + promotion
 
-                        let action =
-                            Action::piece_move(tile.position.clone(), other.position.clone());
+                        let action = Action::piece_move(tile.position, other.position);
                         let ap = ActionPackage {
                             player: current,
                             action: action.clone(),
@@ -831,11 +816,18 @@ impl Player {
 }
 
 impl Action {
-    fn piece_move(origin: Position, target: Position) -> Action {
+    pub fn piece_move(origin: Position, target: Position) -> Action {
         Action::PieceMove {
             origin,
             target,
             kind: ActionPieceMoveKind::Standard,
+        }
+    }
+    pub fn piece_promotion(origin: Position, target: Position, piece_kind: PieceKind) -> Action {
+        Action::PieceMove {
+            origin,
+            target,
+            kind: ActionPieceMoveKind::Promotion { piece_kind },
         }
     }
 }
@@ -858,17 +850,10 @@ impl Board {
                 .collect(),
         }
     }
-    //FOR GUI
-    pub fn make_display_data(&self) -> Vec<Option<(Color, PieceKind)>> {
-        let mut dd = Vec::new();
-        for rank in 0..self.grid.len() {
-            for file in 0..self.grid[0].len() {
-                dd.push(self.grid[rank][file].piece_info());
-            }
-        }
-        dd
-    }
 
+    pub fn get_grid(&self) -> &Vec<TileRow> {
+        &self.grid
+    }
     pub fn print(&self, style: BoardPrintStyle) -> String {
         assert!(!self.grid.is_empty());
 
@@ -968,14 +953,6 @@ impl Tile {
             },
         }
     }
-    pub fn piece_info(&self) -> Option<(Color, PieceKind)> {
-        if self.piece.is_none() {
-            None
-        } else {
-            let piece = self.piece.clone().unwrap();
-            Some((piece.color(), piece.kind()))
-        }
-    }
 }
 
 impl Piece {
@@ -986,12 +963,6 @@ impl Piece {
             color: game.players[player].color,
             moved: false,
         }
-    }
-    pub fn color(&self) -> Color {
-        self.color
-    }
-    pub fn kind(&self) -> PieceKind {
-        self.kind.clone()
     }
 }
 
@@ -1007,11 +978,12 @@ mod tests {
     }
 
     #[test]
-    /*fn initial_board_setup() {
+    fn initial_board_setup() {
         let game = Game::new_standard_game();
         let actual = game.board.print(BoardPrintStyle::ascii_bordered());
-        assert_eq!(actual, include_str!("../../test_data/board_plain.txt"));
-    }*/
+        assert_eq!(actual, include_str!("../test_data/board_plain.txt"));
+    }
+
     #[test]
     fn initial_knight_moves() {
         let mut game = Game::new_standard_game();
@@ -1066,11 +1038,11 @@ mod tests {
         game.perform_action(game.move_from_str("e1 e3")?)
             .expect_err("king cannot move 2 steps");
         game.perform_action(game.move_from_str("d1 h5")?)?;
-        /*
+
         assert_eq!(
             game.board.print(BoardPrintStyle::ascii_bordered()),
-            include_str!("../../test_data/board_std_moves.txt")
-        );*/
+            include_str!("../test_data/board_std_moves.txt")
+        );
         assert_eq!(
             game.status_message(),
             "Active: White(3p), Black(0p); Black's move"
