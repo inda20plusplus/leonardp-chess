@@ -626,21 +626,20 @@ impl Game {
     }
 
     //FOR GUI
-    pub fn move_from_gui(&self, from: Position, to: Position, promote_to: Option<PieceKind>) -> Result<ActionPackage, String> {
+    pub fn move_from_gui(
+        &self,
+        from: Position,
+        to: Position,
+        promote_to: Option<PieceKind>,
+    ) -> Result<ActionPackage, String> {
         let ap = ActionPackage {
             player: self.current_player_index(),
-            action: match promote_to{
-                None => Action::piece_move(
-                    from,
-                    to,
-                    
-                ),
+            action: match promote_to {
+                None => Action::piece_move(from, to),
                 Some(pk) => Action::PieceMove {
                     origin: from,
                     target: to,
-                    kind: ActionPieceMoveKind::Promotion {
-                        piece_kind: pk,
-                    },
+                    kind: ActionPieceMoveKind::Promotion { piece_kind: pk },
                 },
             },
         };
@@ -1074,7 +1073,7 @@ mod tests {
         game.perform_action(game.move_from_str("e1 e3")?)
             .expect_err("king cannot move 2 steps");
         game.perform_action(game.move_from_str("d1 h5")?)?;
-        
+
         assert_eq!(
             game.board.print(BoardPrintStyle::ascii_bordered()),
             include_str!("../test_data/board_std_moves.txt")

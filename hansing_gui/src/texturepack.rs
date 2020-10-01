@@ -7,7 +7,7 @@ pub struct Texturepack {
     pub placeholder: bool,
 }
 impl Texturepack {
-    pub fn new_placeholder() -> Self{
+    pub fn new_placeholder() -> Self {
         Self {
             piece_texture: Vec::new(),
             placeholder: true,
@@ -47,11 +47,12 @@ impl Texturepack {
 
 const PIECE_NAMES: [&str; 6] = ["pawn", "knight", "bishop", "rook", "queen", "king"];
 
-pub fn make_texturepack(c: &mut Context) -> Texturepack{
+pub fn make_texturepack(c: &mut Context) -> Texturepack {
     let mut tp = Texturepack::new();
-    for color in ["w","b"].iter(){
-        for piece in PIECE_NAMES.iter(){
-            tp.piece_texture.push(Image::new(c, format!("/{}_{}.png",color, piece)).unwrap());
+    for color in ["w", "b"].iter() {
+        for piece in PIECE_NAMES.iter() {
+            tp.piece_texture
+                .push(Image::new(c, format!("/{}_{}.png", color, piece)).unwrap());
         }
     }
     tp

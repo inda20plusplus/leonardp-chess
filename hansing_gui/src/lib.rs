@@ -1,4 +1,4 @@
-use ggez::conf::{ WindowSetup};
+use ggez::conf::WindowSetup;
 use ggez::event::MouseButton;
 use ggez::graphics::DrawParam;
 use ggez::{event, graphics::*, Context, GameResult};
@@ -53,8 +53,8 @@ impl Tile {
             Color::from_rgb(40, 80, 40)
         }
     }
-    fn to_pos(&self) -> Position{
-        Position{
+    fn to_pos(&self) -> Position {
+        Position {
             y: self.rank,
             x: self.file,
         }
@@ -65,14 +65,14 @@ struct MainState {
     game: Game,
     display_data: Vec<Option<(PieceColor, PieceKind)>>,
     update_visuals: bool,
-    texturepack: Texturepack, 
+    texturepack: Texturepack,
 }
 
 impl MainState {
     fn new() -> Self {
         Self {
             selected_tile: None,
-            game: Game::new_standard_game(), 
+            game: Game::new_standard_game(),
             update_visuals: true,
             display_data: Vec::new(),
             texturepack: Texturepack::new_placeholder(),
@@ -100,8 +100,8 @@ impl MainState {
             let tile_mesh = Mesh::new_rectangle(c, DrawMode::fill(), rect, color);
             if let Ok(tile_mesh) = tile_mesh {
                 let res = draw(c, &tile_mesh, DrawParam::default());
-                if let Err(res) = res{
-                    println!("{:?}",res);
+                if let Err(res) = res {
+                    println!("{:?}", res);
                 }
                 assert!(self.display_data.len() > tile.get_index());
 
@@ -130,51 +130,48 @@ impl MainState {
                             })
                             .scale(ggez::mint::Vector2 { x: 0.6, y: 0.6 }),
                     );
-                    if let Err(res) = res{
-                        println!("{}",res);
+                    if let Err(res) = res {
+                        println!("{}", res);
                     }
                 }
             }
         }
         let res = present(c);
-        if let Err(res) = res{
-            println!("{}",res);
+        if let Err(res) = res {
+            println!("{}", res);
         }
     }
-    fn _atempt_move_str(&mut self, from: Tile, to: Tile){
+    fn _atempt_move_str(&mut self, from: Tile, to: Tile) {
         println!("Attempting move: {}", interface::move_to_string(from, to));
         let ap = self
             .game
             .move_from_str(interface::move_to_string(from, to).as_str());
-        
+
         if let Ok(ap) = ap {
             println!("ap ok");
             let res = self.game.perform_action(ap);
-            if let Err(res) = res{
-                println!("{:?}",res);
+            if let Err(res) = res {
+                println!("{:?}", res);
             }
             self.display_data = self.game.board.make_display_data();
             self.update_visuals = true;
-        
         }
     }
-    fn atempt_move(&mut self, from: Tile, to: Tile, promote_to: Option<PieceKind>){
+    fn atempt_move(&mut self, from: Tile, to: Tile, promote_to: Option<PieceKind>) {
         println!("Attempting move: {}", interface::move_to_string(from, to));
         let ap = self
             .game
             .move_from_gui(from.to_pos(), to.to_pos(), promote_to);
-        
+
         if let Ok(ap) = ap {
             let res = self.game.perform_action(ap);
-            if let Err(res) = res{
-                if res == "pawn promotion need to be specified"{
+            if let Err(res) = res {
+                if res == "pawn promotion need to be specified" {
                     self.atempt_move(from, to, Some(PieceKind::Queen));
                 }
-
             }
             self.display_data = self.game.board.make_display_data();
             self.update_visuals = true;
-        
         }
     }
 }
@@ -215,7 +212,7 @@ impl event::EventHandler for MainState {
     }
 }
 
-pub fn play_chess(){
+pub fn play_chess() {
     let path = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
         let mut path = path::PathBuf::from(manifest_dir);
         path.push("src");
@@ -237,8 +234,8 @@ pub fn play_chess(){
         let mut state = &mut MainState::new();
         state.display_data = state.game.board.make_display_data();
         let res = event::run(c, event_loop, state);
-        if let Err(res) = res{
-            println!("{}",res);
+        if let Err(res) = res {
+            println!("{}", res);
         }
     }
 }
