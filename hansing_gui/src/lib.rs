@@ -163,11 +163,7 @@ impl MainState {
         for rank in 0..grid.len() {
             for file in 0..grid[0].len() {
                 let tile = &grid[rank][file];
-                let cell = tile
-                    .piece
-                    .as_ref()
-                    .map(|p| p.clone())
-                    .map(|p| (p.color, p.kind));
+                let cell = tile.piece.as_ref().cloned().map(|p| (p.color, p.kind));
                 dd.push(cell);
             }
         }

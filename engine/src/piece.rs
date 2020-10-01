@@ -1,4 +1,5 @@
 use crate::color::Color;
+use std::str::FromStr;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum PieceKind {
@@ -44,9 +45,6 @@ impl PieceKind {
             "P" => Option::Some(PieceKind::Pawn),
             _ => Option::None,
         }
-    }
-    pub fn from_str(source: &str) -> Option<PieceKind> {
-        Self::from_letter(source)
     }
     pub fn jumps(&self) -> bool {
         match self {
@@ -96,5 +94,13 @@ impl PieceKind {
                 (dx, dy)
             })
             .collect()
+    }
+}
+
+impl FromStr for PieceKind {
+    type Err = ();
+
+    fn from_str(source: &str) -> Result<Self, Self::Err> {
+        Self::from_letter(source).ok_or(())
     }
 }

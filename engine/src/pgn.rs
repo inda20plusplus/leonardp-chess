@@ -13,7 +13,7 @@ impl PGNCommand {
         // TODO: DRY
         match source.len() {
             3 => {
-                let piece = PieceKind::from_str(&source[0..1]);
+                let piece = PieceKind::from_str(&source[0..1]).ok();
                 let position = Position::from_str(&source[1..3]);
 
                 if let Ok(position) = position {

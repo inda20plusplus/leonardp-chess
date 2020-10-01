@@ -1,4 +1,4 @@
-# indachess
+# indachess [![Build Status](https://travis-ci.org/inda20plusplus/leonardp-chess.svg?branch=main)](https://travis-ci.org/inda20plusplus/leonardp-chess)
 *Chess rule engine in rust, see /engine*
 
 ![chessboard](docs/chessboard_moved.png)

@@ -612,7 +612,7 @@ impl Game {
                         .ok_or("invalid target")?,
                     kind: ActionPieceMoveKind::Promotion {
                         piece_kind: PieceKind::from_str(&components[3])
-                            .ok_or("invalid promotion piece")?,
+                            .or(Err("invalid promotion piece"))?,
                     },
                 },
                 _ => {
@@ -971,15 +971,13 @@ mod tests {
     use super::*;
 
     macro_rules! assert_eq_lines {
-        ($left:expr, $right:expr) => {
-            {
-                let right = $right;
-                let left = $left;
-                let right: Vec<_> = right.lines().collect();
-                let left: Vec<_> = left.lines().collect();
-                assert_eq!(right, left)
-            }
-        };
+        ($left:expr, $right:expr) => {{
+            let right = $right;
+            let left = $left;
+            let right: Vec<_> = right.lines().collect();
+            let left: Vec<_> = left.lines().collect();
+            assert_eq!(right, left)
+        }};
     }
 
     fn perform_many(game: &mut Game, commands: &str) -> Result<(), String> {
