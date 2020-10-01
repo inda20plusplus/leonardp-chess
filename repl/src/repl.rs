@@ -1,4 +1,4 @@
-use crate::lib::*;
+use chess_engine::*;
 use std::io::{self, Result as IOResult, Write};
 
 type IOResultPlain = IOResult<()>;
@@ -94,16 +94,20 @@ impl GameRepl {
     }
     fn prompt(&mut self) -> IOResultPlain {
         match self.game.get_state() {
-            State::Active=> {
+            State::Active => {
                 if self.game.is_check(self.game.current_player_index()) {
-                    write!(self.stdout, "{} (checked)> ", self.game.current_player_title())?;
+                    write!(
+                        self.stdout,
+                        "{} (checked)> ",
+                        self.game.current_player_title()
+                    )?;
                 } else {
                     write!(self.stdout, "{}> ", self.game.current_player_title())?;
                 }
-            },
-            State::Ended(endstate)=> {
+            }
+            State::Ended(endstate) => {
                 write!(self.stdout, "{:?}> ", endstate)?;
-            },
+            }
         }
         self.stdout.flush()
     }

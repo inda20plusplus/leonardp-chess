@@ -1,4 +1,4 @@
-use crate::lib::color::Color;
+use crate::color::Color;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum PieceKind {

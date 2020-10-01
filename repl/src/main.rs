@@ -1,7 +1,6 @@
-mod lib;
 mod repl;
 
-use lib::*;
+use chess_engine::Game;
 use repl::GameRepl;
 use std::io::{self, BufRead, Result as IOResult};
 

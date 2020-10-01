@@ -1,4 +1,4 @@
-pub use crate::lib::view::*;
+pub use crate::view::*;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Position {

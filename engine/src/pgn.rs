@@ -1,5 +1,5 @@
-use crate::lib::piece::*;
-use crate::lib::position::*;
+use crate::piece::*;
+use crate::position::*;
 // use crate::lib::matcher::*;
 
 pub struct PGNCommand {

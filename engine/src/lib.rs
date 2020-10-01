@@ -498,7 +498,8 @@ impl Game {
 
                 // check check
                 let mut game2 = self.clone();
-                let attempt = game2.perform_action_inner(action_package.clone(), action_validation.clone());
+                let attempt =
+                    game2.perform_action_inner(action_package.clone(), action_validation.clone());
                 if attempt.is_err() {
                     // TODO: unreachable?
                     Ok(action_validation)
@@ -509,7 +510,6 @@ impl Game {
                         Ok(action_validation)
                     }
                 }
-
             }
         }
     }
@@ -763,7 +763,7 @@ impl Game {
             })
             .flatten()
             .next();
-        
+
         // TODO: should not be possible to check opponent while remaining in check
         // println!("nn {:?}", non_checking_action);
         let non_checking_action_exits = non_checking_action.is_some();
@@ -963,7 +963,7 @@ mod tests {
     fn initial_board_setup() {
         let game = Game::new_standard_game();
         let actual = game.board.print(BoardPrintStyle::ascii_bordered());
-        assert_eq!(actual, include_str!("../../test_data/board_plain.txt"));
+        assert_eq!(actual, include_str!("../test_data/board_plain.txt"));
     }
 
     #[test]
@@ -1023,7 +1023,7 @@ mod tests {
 
         assert_eq!(
             game.board.print(BoardPrintStyle::ascii_bordered()),
-            include_str!("../../test_data/board_std_moves.txt")
+            include_str!("../test_data/board_std_moves.txt")
         );
         assert_eq!(
             game.status_message(),
