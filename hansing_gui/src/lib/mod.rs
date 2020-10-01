@@ -9,10 +9,8 @@ use chess_engine::piece::PieceKind;
 use chess_engine::{Game, Position};
 
 mod texturepack;
-mod interface;
 
 use texturepack::Texturepack;
-use interface::{move_to_string};
 
 const BOARD_SIZE: f32 = 800.0;
 const BOARD_DIM: usize = 8;
@@ -141,24 +139,8 @@ impl MainState {
             println!("{}", res);
         }
     }
-    fn _atempt_move_str(&mut self, from: Tile, to: Tile) {
-        println!("Attempting move: {}", move_to_string(from, to));
-        let ap = self
-            .game
-            .move_from_str(move_to_string(from, to).as_str());
 
-        if let Ok(ap) = ap {
-            println!("ap ok");
-            let res = self.game.perform_action(ap);
-            if let Err(res) = res {
-                println!("{:?}", res);
-            }
-            self.display_data = self.make_display_data();
-            self.update_visuals = true;
-        }
-    }
     fn atempt_move(&mut self, from: Tile, to: Tile, promote_to: Option<PieceKind>) {
-        println!("Attempting move: {}", move_to_string(from, to));
         let ap = self.move_from_gui(from.to_pos(), to.to_pos(), promote_to);
 
         if let Ok(ap) = ap {
@@ -181,7 +163,11 @@ impl MainState {
         for rank in 0..grid.len() {
             for file in 0..grid[0].len() {
                 let tile = &grid[rank][file];
-                let cell = tile.piece.as_ref().map(|p| p.clone()).map(|p| (p.color, p.kind));
+                let cell = tile
+                    .piece
+                    .as_ref()
+                    .map(|p| p.clone())
+                    .map(|p| (p.color, p.kind));
                 dd.push(cell);
             }
         }
@@ -223,7 +209,6 @@ impl event::EventHandler for MainState {
     }
     fn mouse_button_down_event(&mut self, _c: &mut Context, _button: MouseButton, x: f32, y: f32) {
         self.update_visuals = true;
-        println!("{} {}", x, y);
         let clicked_tile = Tile::from_mouse_pos(x, y);
         if clicked_tile.is_some() {
             if self.selected_tile.is_none() {
